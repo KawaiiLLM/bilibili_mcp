@@ -36,8 +36,14 @@ export const discoveryToolRouter: ToolRouter = {
     const page = positiveInteger(optionalNumber(TOOL_NAME, args, "page"), 1, "page", TOOL_NAME);
     const limit = positiveInteger(optionalNumber(TOOL_NAME, args, "limit"), action === "hot" ? 20 : 10, "limit", TOOL_NAME);
     switch (action) {
-      case "search":
-        return searchAll({ keyword: requireString(TOOL_NAME, args, "keyword"), page });
+      case "search": {
+        const payload = await searchVideos({
+          keyword: requireString(TOOL_NAME, args, "keyword"),
+          page,
+          pageSize: limit,
+        });
+        return normalizeVideoList(payload, "search", { arrayKey: "result", limit });
+      }
       case "search_type":
         return searchByType({
           keyword: requireString(TOOL_NAME, args, "keyword"),

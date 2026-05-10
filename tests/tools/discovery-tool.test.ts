@@ -119,3 +119,85 @@ test("discovery hot strips raw payload noise into VideoCard shape", async () => 
     fetchMock.restore();
   }
 });
+
+test("discovery search returns VideoListResult and drops raw payload noise", async () => {
+  const fetchMock = installMockFetch((url) => {
+    if (url.pathname === "/x/web-interface/nav") {
+      return jsonResponse({
+        code: 0,
+        data: {
+          wbi_img: {
+            img_url: "https://i0.hdslb.com/bfs/wbi/abcdefghijklmnopqrstuvwxyz123456.png",
+            sub_url: "https://i0.hdslb.com/bfs/wbi/ABCDEFGHIJKLMNOPQRSTUVWXYZ123456.png",
+          },
+        },
+      });
+    }
+    if (url.pathname === "/x/web-interface/wbi/search/type") {
+      return jsonResponse({
+        code: 0,
+        data: {
+          page: 1,
+          pagesize: 5,
+          numResults: 1000,
+          next: 2,
+          seid: "ignored",
+          exp_list: { foo: true, bar: true },
+          pageinfo: { tv: { numResults: 0, pages: 0, total: 0 } },
+          result: [
+            {
+              aid: 116530582917601,
+              bvid: "BV1WiRhBhEmQ",
+              title: "<em class=\"keyword\">Veritasium</em> 真理元素",
+              arcurl: "https://www.bilibili.com/video/BV1WiRhBhEmQ",
+              pic: "//i0.hdslb.com/bfs/archive/cover.jpg",
+              description: "晶型危机",
+              author: "Veritasium真理元素",
+              mid: 94742590,
+              upic: "//i1.hdslb.com/bfs/face/3e3e6ffa.jpg",
+              duration: "31:34",
+              senddate: 1778130000,
+              play: 433574,
+              like: 22302,
+              review: 1990,
+              favorites: 14175,
+              danmaku: 1800,
+              tag: "physics",
+              rank_score: 1234.56,
+            },
+          ],
+        },
+      });
+    }
+    return jsonResponse({ code: -404, message: `unexpected ${url.pathname}` });
+  });
+
+  try {
+    const result = await callTool("bilibili_discovery", {
+      action: "search",
+      keyword: "Veritasium",
+      limit: 5,
+    }) as any;
+    const resultKeys = Object.keys(result);
+    for (const noise of ["seid", "exp_list", "pageinfo", "rqt_type", "is_hit_web_inf", "egg_hit"]) {
+      assert.ok(!resultKeys.includes(noise), `unexpected key: ${noise}`);
+    }
+    assert.equal(result.list.length, 1);
+    assert.equal(result.page, 1);
+    assert.equal(result.total, 1000);
+    assert.equal(result.has_more, true);
+    const card = result.list[0];
+    assert.equal(card.bvid, "BV1WiRhBhEmQ");
+    assert.equal(card.title, "Veritasium 真理元素");
+    assert.equal(card.cover, "https://i0.hdslb.com/bfs/archive/cover.jpg");
+    assert.equal(card.duration_seconds, 1894);
+    assert.equal(card.duration_text, "31:34");
+    assert.equal(card.owner.name, "Veritasium真理元素");
+    assert.equal(card.owner.avatar, "https://i1.hdslb.com/bfs/face/3e3e6ffa.jpg");
+    assert.equal(card.stat.view, 433574);
+    assert.equal(card.pubdate, 1778130000);
+    assert.deepEqual(card.extras, { tag: "physics", rank_score: 1234.56 });
+  } finally {
+    fetchMock.restore();
+  }
+});
