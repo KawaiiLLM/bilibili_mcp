@@ -10,6 +10,8 @@ import {
   type VideoCard,
   normalizeVideoList,
   type VideoListResult,
+  normalizeDanmakuItem,
+  type DanmakuItem,
 } from "../../src/tools/normalize.js";
 
 test("stripHtml removes tags and collapses whitespace", () => {
@@ -201,4 +203,35 @@ test("normalizeVideoList respects no_more=true sentinel", () => {
   const result: VideoListResult = normalizeVideoList({ list: [], no_more: true }, "hot");
   assert.equal(result.list.length, 0);
   assert.equal(result.has_more, false);
+});
+
+test("normalizeDanmakuItem expands mode label and color hex", () => {
+  const result: DanmakuItem = normalizeDanmakuItem({
+    time_seconds: 1258.586,
+    mode: 1,
+    font_size: 25,
+    color: 16777215,
+    content: "test",
+  });
+  assert.deepEqual(result, {
+    time_seconds: 1258.586,
+    content: "test",
+    mode: 1,
+    mode_label: "滚动",
+    font_size: 25,
+    color: 16777215,
+    color_hex: "#ffffff",
+  });
+});
+
+test("normalizeDanmakuItem unknown mode falls back to '未知'", () => {
+  const result: DanmakuItem = normalizeDanmakuItem({
+    time_seconds: 0,
+    mode: 99,
+    font_size: 12,
+    color: 0,
+    content: "x",
+  });
+  assert.equal(result.mode_label, "未知");
+  assert.equal(result.color_hex, "#000000");
 });

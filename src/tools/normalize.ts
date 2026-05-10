@@ -237,3 +237,27 @@ function inferHasMore(obj: Record<string, unknown>, fullCount: number, returnedC
   if (returnedCount < fullCount) return true;
   return undefined;
 }
+
+export interface DanmakuItem {
+  time_seconds: number;
+  content: string;
+  mode: number;
+  mode_label: string;
+  font_size: number;
+  color: number;
+  color_hex: string;
+}
+
+export function normalizeDanmakuItem(raw: any): DanmakuItem {
+  const mode = toNum(raw?.mode);
+  const color = toNum(raw?.color);
+  return {
+    time_seconds: typeof raw?.time_seconds === "number" ? raw.time_seconds : toNum(raw?.time_seconds),
+    content: String(raw?.content ?? ""),
+    mode,
+    mode_label: DANMAKU_MODE_LABELS[mode] ?? "未知",
+    font_size: toNum(raw?.font_size),
+    color,
+    color_hex: colorIntToHex(color),
+  };
+}
