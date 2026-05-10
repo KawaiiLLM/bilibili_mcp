@@ -4,6 +4,7 @@ import { getXmlDanmaku } from "../modules/danmaku.js";
 import { coinVideo, favoriteVideo, followUser, likeVideo } from "../modules/action.js";
 import { assertAllowedArgs, optionalNumber, optionalNumberArray, optionalString, positiveInteger, requireString, type ToolRouter } from "./common.js";
 import { createConfirmationStore } from "./confirmation.js";
+import { normalizeDanmakuItem } from "./normalize.js";
 import { resolveVideoContext } from "./video-tool.js";
 
 const TOOL_NAME = "bilibili_interaction";
@@ -90,10 +91,14 @@ async function getReplies(args: Record<string, unknown>): Promise<unknown> {
 async function getDanmaku(args: Record<string, unknown>): Promise<unknown> {
   const target = await resolveReadVideoTarget(args, positiveInteger(optionalNumber(TOOL_NAME, args, "page"), 1, "page", TOOL_NAME));
   if (!target.cid) throw new ValidationError("danmaku action 未解析到 cid。", { tool: TOOL_NAME });
-  return getXmlDanmaku({
+  const payload = await getXmlDanmaku({
     cid: target.cid,
     limit: positiveInteger(optionalNumber(TOOL_NAME, args, "limit"), 100, "limit", TOOL_NAME),
   });
+  return {
+    ...payload,
+    items: Array.isArray(payload?.items) ? payload.items.map(normalizeDanmakuItem) : [],
+  };
 }
 
 async function handleWriteAction(action: WriteAction, args: Record<string, unknown>): Promise<unknown> {
