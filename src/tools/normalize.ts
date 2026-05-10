@@ -261,3 +261,23 @@ export function normalizeDanmakuItem(raw: any): DanmakuItem {
     color_hex: colorIntToHex(color),
   };
 }
+
+export interface SubtitleEntry {
+  id: number;
+  lan: string;
+  lan_doc: string;
+  type: number;
+  ai_generated: boolean;
+  subtitle_url: string;
+}
+
+export function normalizeSubtitleEntry(raw: any): SubtitleEntry {
+  return {
+    id: toNum(raw?.id),
+    lan: String(raw?.lan ?? ""),
+    lan_doc: String(raw?.lan_doc ?? ""),
+    type: toNum(raw?.type),
+    ai_generated: raw?.ai_type === 1,
+    subtitle_url: normalizeAbsoluteUrl(raw?.subtitle_url),
+  };
+}

@@ -12,6 +12,8 @@ import {
   type VideoListResult,
   normalizeDanmakuItem,
   type DanmakuItem,
+  normalizeSubtitleEntry,
+  type SubtitleEntry,
 } from "../../src/tools/normalize.js";
 
 test("stripHtml removes tags and collapses whitespace", () => {
@@ -234,4 +236,40 @@ test("normalizeDanmakuItem unknown mode falls back to '未知'", () => {
   });
   assert.equal(result.mode_label, "未知");
   assert.equal(result.color_hex, "#000000");
+});
+
+test("normalizeSubtitleEntry strips internal fields and adds ai_generated", () => {
+  const result: SubtitleEntry = normalizeSubtitleEntry({
+    id: 2013306452378246100,
+    lan: "ai-zh",
+    lan_doc: "中文",
+    is_lock: false,
+    subtitle_url: "//aisubtitle.hdslb.com/path?auth_key=abc",
+    subtitle_url_v2: "//subtitle.bilibili.com/S%13%1B%1D",
+    type: 1,
+    id_str: "2013306452378246144",
+    ai_type: 1,
+    ai_status: 2,
+  });
+  assert.deepEqual(result, {
+    id: 2013306452378246100,
+    lan: "ai-zh",
+    lan_doc: "中文",
+    type: 1,
+    ai_generated: true,
+    subtitle_url: "https://aisubtitle.hdslb.com/path?auth_key=abc",
+  });
+});
+
+test("normalizeSubtitleEntry treats non-ai_type as human", () => {
+  const result: SubtitleEntry = normalizeSubtitleEntry({
+    id: 1,
+    lan: "zh-Hans",
+    lan_doc: "中文",
+    type: 2,
+    ai_type: 0,
+    subtitle_url: "https://x.com/x.json",
+  });
+  assert.equal(result.ai_generated, false);
+  assert.equal(result.subtitle_url, "https://x.com/x.json");
 });
