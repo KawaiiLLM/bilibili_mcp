@@ -1,5 +1,5 @@
 import { ValidationError } from "../core/errors.js";
-import { getHotSearchKeywords, getSearchSuggestions, searchAll, searchByType, searchVideos } from "../modules/search.js";
+import { getSearchSuggestions, searchByType, searchVideos } from "../modules/search.js";
 import { getHotVideos, getMustWatch, getRanking, getWeeklySeries } from "../modules/ranking.js";
 import { getRelatedVideos } from "../modules/recommend.js";
 import { assertAllowedArgs, optionalNumber, optionalString, positiveInteger, requireString, type ToolRouter } from "./common.js";
