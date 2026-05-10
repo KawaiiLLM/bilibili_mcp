@@ -1,0 +1,55 @@
+{
+  "name": "bilibili-mcp",
+  "version": "0.1.0",
+  "description": "Bilibili MCP Server with CookieCloud authentication and endpoint-driven API client",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "./dist/index.js",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "bin": {
+    "bilibili-mcp": "dist/cli.js"
+  },
+  "scripts": {
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "clean:test": "node -e \"require('fs').rmSync('dist-test',{recursive:true,force:true})\"",
+    "build": "npm run clean && tsc && node scripts/copy-assets.mjs dist",
+    "test": "npm run clean:test && tsc -p tsconfig.test.json && node scripts/copy-assets.mjs dist-test/src && node --test dist-test/tests",
+    "watch": "tsc --watch",
+    "start": "node dist/index.js",
+    "start:http": "node dist/cli.js http",
+    "check": "node dist/cli.js check",
+    "prepublishOnly": "npm run build"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "bilibili",
+    "cookiecloud",
+    "danmaku",
+    "comments"
+  ],
+  "license": "GPL-3.0",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "commander": "^14.0.3",
+    "dotenv": "^17.2.4",
+    "express": "^5.2.1",
+    "protobufjs": "^7.5.4",
+    "quick-lru": "^7.3.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/node": "^22.19.8",
+    "typescript": "^5.7.2"
+  }
+}

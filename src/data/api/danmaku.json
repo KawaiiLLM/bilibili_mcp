@@ -1,0 +1,32 @@
+{
+  "xml": {
+    "get": {
+      "url": "/{cid}.xml",
+      "method": "GET",
+      "wbi": false,
+      "auth": false,
+      "csrf": false,
+      "buvid": false,
+      "params_type": "query",
+      "response_type": "text",
+      "base_url": "comment",
+      "comment": "Get XML danmaku by cid."
+    }
+  },
+  "seg": {
+    "get": {
+      "url": "https://api.bilibili.com/x/v2/dm/web/seg.so",
+      "method": "GET",
+      "wbi": false,
+      "auth": false,
+      "csrf": false,
+      "buvid": false,
+      "params_type": "query",
+      "response_type": "proto",
+      "defaults": {
+        "type": 1
+      },
+      "comment": "Get segmented protobuf danmaku."
+    }
+  }
+}

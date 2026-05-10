@@ -1,0 +1,77 @@
+{
+  "video": {
+    "like": {
+      "url": "https://api.bilibili.com/x/web-interface/archive/like",
+      "method": "POST",
+      "wbi": false,
+      "auth": true,
+      "csrf": true,
+      "buvid": true,
+      "params_type": "body",
+      "content_type": "form",
+      "response_type": "json",
+      "comment": "Like or unlike a video."
+    },
+    "coin": {
+      "url": "https://api.bilibili.com/x/web-interface/coin/add",
+      "method": "POST",
+      "wbi": false,
+      "auth": true,
+      "csrf": true,
+      "buvid": false,
+      "params_type": "body",
+      "content_type": "form",
+      "response_type": "json",
+      "defaults": {
+        "select_like": 0
+      },
+      "comment": "Add coins to a video."
+    },
+    "favorite_folders": {
+      "url": "https://api.bilibili.com/x/v3/fav/folder/created/list-all",
+      "method": "GET",
+      "wbi": false,
+      "auth": true,
+      "csrf": false,
+      "buvid": false,
+      "params_type": "query",
+      "response_type": "json",
+      "defaults": {
+        "type": 2
+      },
+      "comment": "List favorite folders for current video."
+    },
+    "favorite": {
+      "url": "https://api.bilibili.com/x/v3/fav/resource/deal",
+      "method": "POST",
+      "wbi": false,
+      "auth": true,
+      "csrf": true,
+      "buvid": false,
+      "params_type": "body",
+      "content_type": "form",
+      "response_type": "json",
+      "defaults": {
+        "type": 2
+      },
+      "comment": "Add or remove video favorite relation."
+    }
+  },
+  "user": {
+    "follow": {
+      "url": "https://api.bilibili.com/x/relation/modify",
+      "method": "POST",
+      "wbi": false,
+      "auth": true,
+      "csrf": true,
+      "buvid": false,
+      "params_type": "body",
+      "content_type": "form",
+      "response_type": "json",
+      "defaults": {
+        "re_src": 11
+      },
+      "comment": "Follow or unfollow a user."
+    }
+  }
+}

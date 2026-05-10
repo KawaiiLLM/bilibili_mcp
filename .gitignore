@@ -1,0 +1,22 @@
+# Reference repositories; not part of the new Bilibili MCP Server.
+/bilibili-api/
+/biliscope-mcp/
+/bilibili-API-collect/
+/.superpowers/
+
+# Local dependencies and build outputs.
+/node_modules/
+/dist/
+/dist-test/
+/coverage/
+
+# Local secrets and environment.
+.env
+.env.*
+!.env.example
+
+# Logs and OS/editor files.
+*.log
+.DS_Store
+.idea/
+.vscode/

@@ -1,0 +1,15 @@
+import "./core/api-types.test.js";
+import "./core/api-loader.test.js";
+import "./core/client.test.js";
+import "./core/bvid.test.js";
+import "./core/confirmation.test.js";
+import "./core/logger.test.js";
+import "./modules/video.test.js";
+import "./modules/snapshot.test.js";
+import "./modules/auth.test.js";
+import "./modules/subtitle.test.js";
+import "./modules/comment-danmaku.test.js";
+import "./modules/discovery.test.js";
+import "./modules/action.test.js";
+import "./tools/tools.test.js";
+import "./tools/video-tool.test.js";

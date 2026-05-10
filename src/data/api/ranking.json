@@ -1,0 +1,51 @@
+{
+  "popular": {
+    "hot": {
+      "url": "https://api.bilibili.com/x/web-interface/popular",
+      "method": "GET",
+      "wbi": false,
+      "auth": false,
+      "csrf": false,
+      "buvid": false,
+      "params_type": "query",
+      "response_type": "json",
+      "comment": "Get popular videos."
+    },
+    "ranking": {
+      "url": "https://api.bilibili.com/x/web-interface/ranking/v2",
+      "method": "GET",
+      "wbi": true,
+      "auth": false,
+      "csrf": false,
+      "buvid": false,
+      "params_type": "query",
+      "response_type": "json",
+      "defaults": {
+        "web_location": "333.934"
+      },
+      "comment": "Get ranking videos."
+    },
+    "weekly": {
+      "url": "https://api.bilibili.com/x/web-interface/popular/series/list",
+      "method": "GET",
+      "wbi": false,
+      "auth": false,
+      "csrf": false,
+      "buvid": false,
+      "params_type": "query",
+      "response_type": "json",
+      "comment": "Get weekly series list."
+    },
+    "must_watch": {
+      "url": "https://api.bilibili.com/x/web-interface/popular/precious",
+      "method": "GET",
+      "wbi": false,
+      "auth": false,
+      "csrf": false,
+      "buvid": false,
+      "params_type": "query",
+      "response_type": "json",
+      "comment": "Get must-watch archive list."
+    }
+  }
+}
