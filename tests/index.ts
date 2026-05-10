@@ -14,3 +14,4 @@ import "./modules/action.test.js";
 import "./tools/discovery-tool.test.js";
 import "./tools/tools.test.js";
 import "./tools/video-tool.test.js";
+import "./tools/normalize.test.js";
