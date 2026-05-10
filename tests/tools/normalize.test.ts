@@ -8,6 +8,8 @@ import {
   DANMAKU_MODE_LABELS,
   normalizeVideoCard,
   type VideoCard,
+  normalizeVideoList,
+  type VideoListResult,
 } from "../../src/tools/normalize.js";
 
 test("stripHtml removes tags and collapses whitespace", () => {
@@ -148,4 +150,49 @@ test("normalizeVideoCard related source aligns with M6 shape", () => {
   assert.equal(card.extras, undefined);
   const cardKeys = Object.keys(card);
   assert.ok(!cardKeys.includes("cid"), "related source must not leak cid");
+});
+
+test("normalizeVideoList unwraps payload list and applies limit", () => {
+  const payload = {
+    list: [
+      { bvid: "BV1aaaaaaaaaa", aid: 1, title: "A", duration: 60, pubdate: 1, owner: {}, stat: {} },
+      { bvid: "BV1bbbbbbbbbb", aid: 2, title: "B", duration: 90, pubdate: 2, owner: {}, stat: {} },
+      { bvid: "BV1cccccccccc", aid: 3, title: "C", duration: 30, pubdate: 3, owner: {}, stat: {} },
+    ],
+    no_more: false,
+  };
+  const result = normalizeVideoList(payload, "hot", { limit: 2 });
+  assert.equal(result.list.length, 2);
+  assert.equal(result.list[0].bvid, "BV1aaaaaaaaaa");
+  assert.equal(result.has_more, true);
+});
+
+test("normalizeVideoList accepts custom arrayKey for search payload", () => {
+  const payload = {
+    page: 1,
+    numResults: 1000,
+    next: 2,
+    result: [
+      { bvid: "BV1xxxxxxxxxx", aid: 100, title: "search", duration: "10:00", play: 0 },
+    ],
+    seid: "ignored",
+    exp_list: { foo: true },
+    pageinfo: {},
+  };
+  const result = normalizeVideoList(payload, "search", { arrayKey: "result", limit: 5 });
+  assert.equal(result.list.length, 1);
+  assert.equal(result.list[0].bvid, "BV1xxxxxxxxxx");
+  assert.equal(result.page, 1);
+  assert.equal(result.has_more, true);
+  assert.equal(result.total, 1000);
+});
+
+test("normalizeVideoList handles top-level array (related shape)", () => {
+  const payload = [
+    { bvid: "BV1aaaaaaaaaa", aid: 1, title: "first", duration: 10, owner: {}, stat: {} },
+    { bvid: "BV1bbbbbbbbbb", aid: 2, title: "second", duration: 20, owner: {}, stat: {} },
+  ];
+  const result = normalizeVideoList(payload, "related", { limit: 1 });
+  assert.equal(result.list.length, 1);
+  assert.equal(result.list[0].title, "first");
 });

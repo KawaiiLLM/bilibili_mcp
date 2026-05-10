@@ -180,3 +180,60 @@ function optionalString(value: unknown): string | undefined {
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : undefined;
 }
+
+export interface VideoListResult {
+  list: VideoCard[];
+  page?: number;
+  has_more?: boolean;
+  total?: number;
+}
+
+export interface NormalizeVideoListOptions {
+  limit?: number;
+  arrayKey?: string;
+}
+
+export function normalizeVideoList(
+  payload: unknown,
+  source: VideoCardSource,
+  opts: NormalizeVideoListOptions = {},
+): VideoListResult {
+  const { limit, arrayKey = "list" } = opts;
+  const items = extractArray(payload, arrayKey);
+  const limited = typeof limit === "number" && limit > 0 ? items.slice(0, limit) : items;
+  const list = limited.map((raw) => normalizeVideoCard(raw, source));
+  const result: VideoListResult = { list };
+  if (!Array.isArray(payload) && payload && typeof payload === "object") {
+    const obj = payload as Record<string, unknown>;
+    const page = toOptionalPositiveInt(obj.page ?? obj.pn);
+    if (page !== undefined) result.page = page;
+    const total = toOptionalPositiveInt(obj.numResults ?? obj.total);
+    if (total !== undefined) result.total = total;
+    const hasMore = inferHasMore(obj, items.length, list.length);
+    if (hasMore !== undefined) result.has_more = hasMore;
+  }
+  return result;
+}
+
+function extractArray(payload: unknown, arrayKey: string): any[] {
+  if (Array.isArray(payload)) return payload;
+  if (payload && typeof payload === "object") {
+    const value = (payload as Record<string, unknown>)[arrayKey];
+    if (Array.isArray(value)) return value;
+  }
+  return [];
+}
+
+function toOptionalPositiveInt(value: unknown): number | undefined {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric > 0 ? Math.floor(numeric) : undefined;
+}
+
+function inferHasMore(obj: Record<string, unknown>, originalCount: number, normalizedCount: number): boolean | undefined {
+  if (typeof obj.no_more === "boolean") return !obj.no_more;
+  if (typeof obj.has_more === "boolean") return obj.has_more;
+  const next = Number(obj.next);
+  if (Number.isFinite(next) && next > 0) return true;
+  if (originalCount !== normalizedCount) return true;
+  return undefined;
+}
