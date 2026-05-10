@@ -57,6 +57,7 @@ export function normalizeVideoCard(raw: any, source: VideoCardSource): VideoCard
   const owner = raw?.owner ?? {};
   const bvid = String(raw?.bvid ?? "");
   const aid = toNum(raw?.aid);
+  const durationSeconds = parseDurationSeconds(raw?.duration);
   const titleRaw = raw?.title;
   const descriptionRaw = source === "search" ? raw?.description : raw?.desc;
   const description = truncateText(stripHtml(descriptionRaw), DESCRIPTION_MAX);
@@ -66,8 +67,8 @@ export function normalizeVideoCard(raw: any, source: VideoCardSource): VideoCard
     title: stripHtml(titleRaw),
     url: bvid ? `https://www.bilibili.com/video/${bvid}` : "",
     cover: normalizeAbsoluteUrl(raw?.pic),
-    duration_seconds: parseDurationSeconds(raw?.duration),
-    duration_text: formatDuration(parseDurationSeconds(raw?.duration)),
+    duration_seconds: durationSeconds,
+    duration_text: formatDuration(durationSeconds),
     owner: {
       mid: source === "search" ? toNum(raw?.mid ?? owner?.mid) : toNum(owner?.mid),
       name: String((source === "search" ? raw?.author : owner?.name) ?? ""),
@@ -115,11 +116,17 @@ function pickExtras(raw: any, source: VideoCardSource): Record<string, unknown> 
   const extras: Record<string, unknown> = {};
   switch (source) {
     case "hot":
-    case "must_watch":
-    case "weekly":
       if (raw?.rcmd_reason?.content) extras.rcmd_reason = raw.rcmd_reason.content;
       if (typeof raw?.his_rank === "number") extras.his_rank = raw.his_rank;
       if (typeof raw?.season_type === "number") extras.season_type = raw.season_type;
+      break;
+    case "weekly":
+      if (typeof raw?.episodic_index === "number") extras.episodic_index = raw.episodic_index;
+      if (raw?.rcmd_reason?.content) extras.rcmd_reason = raw.rcmd_reason.content;
+      break;
+    case "must_watch":
+      if (raw?.rcmd_reason?.content) extras.rcmd_reason = raw.rcmd_reason.content;
+      if (typeof raw?.is_steins_gate === "number") extras.is_steins_gate = raw.is_steins_gate;
       break;
     case "ranking":
       if (raw?.score !== undefined) extras.score = raw.score;
@@ -131,7 +138,7 @@ function pickExtras(raw: any, source: VideoCardSource): Record<string, unknown> 
       if (raw?.is_pay !== undefined) extras.is_pay = Boolean(raw.is_pay);
       break;
     case "related":
-      // 暂无 related-only extras
+      // no extras
       break;
   }
   return extras;

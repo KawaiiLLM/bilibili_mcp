@@ -6,8 +6,9 @@ import {
   colorIntToHex,
   truncateText,
   DANMAKU_MODE_LABELS,
+  normalizeVideoCard,
+  type VideoCard,
 } from "../../src/tools/normalize.js";
-import { normalizeVideoCard, type VideoCard } from "../../src/tools/normalize.js";
 
 test("stripHtml removes tags and collapses whitespace", () => {
   assert.equal(stripHtml("<em>Hello</em>  world"), "Hello world");
@@ -65,7 +66,7 @@ test("normalizeVideoCard maps hot endpoint payload", () => {
     season_type: 1,
   };
 
-  const card = normalizeVideoCard(raw, "hot");
+  const card: VideoCard = normalizeVideoCard(raw, "hot");
   assert.equal(card.bvid, "BV1wPRZBMEft");
   assert.equal(card.aid, 116546085061974);
   assert.equal(card.title, "《陛下何故谋反》");
@@ -108,7 +109,7 @@ test("normalizeVideoCard search source strips highlight html and extracts sendda
     rank_score: 1234.56,
   };
 
-  const card = normalizeVideoCard(raw, "search");
+  const card: VideoCard = normalizeVideoCard(raw, "search");
   assert.equal(card.title, "Veritasium 真理元素");
   assert.equal(card.description, "药物晶型危机");
   assert.equal(card.url, "https://www.bilibili.com/video/BV1WiRhBhEmQ");
@@ -134,10 +135,17 @@ test("normalizeVideoCard related source aligns with M6 shape", () => {
     stat: { view: 100, danmaku: 2, reply: 3, favorite: 4, coin: 5, share: 6, like: 7 },
   };
 
-  const card = normalizeVideoCard(raw, "related");
+  const card: VideoCard = normalizeVideoCard(raw, "related");
   assert.equal(card.title, "相关 视频");
   assert.equal(card.bvid, "BV2abcdefghi");
+  assert.equal(card.aid, 2);
+  assert.equal(card.url, "https://www.bilibili.com/video/BV2abcdefghi");
+  assert.equal(card.duration_seconds, 61);
   assert.equal(card.duration_text, "01:01");
+  assert.equal(card.stat.view, 100);
   assert.equal(card.owner.avatar, "avatar.jpg");
   assert.equal(card.category, "动画");
+  assert.equal(card.extras, undefined);
+  const cardKeys = Object.keys(card);
+  assert.ok(!cardKeys.includes("cid"), "related source must not leak cid");
 });
