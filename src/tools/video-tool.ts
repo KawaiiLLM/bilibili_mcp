@@ -6,6 +6,7 @@ import { getVideoSnapshot } from "../modules/snapshot.js";
 import { getVideoSubtitles } from "../modules/subtitle.js";
 import { formatDuration, getPlayUrl, getVideoDetail, getVideoInfo, normalizePages, selectPage, type VideoPageInfo } from "../modules/video.js";
 import { assertAllowedArgs, optionalNumber, optionalString, requireString, type ToolRouter } from "./common.js";
+import { normalizeSubtitleEntry } from "./normalize.js";
 
 const TOOL_NAME = "bilibili_video";
 const VIDEO_ACTIONS = ["info", "detail", "subtitle", "summary", "snapshot", "stream", "pages"] as const;
@@ -49,8 +50,13 @@ export const videoToolRouter: ToolRouter = {
         return { bvid: context.bvid, aid: context.aid, pages: summarizePages(context.pages) };
       case "detail":
         return { ...summarizeContext(context), detail: await getVideoDetail({ bvid: context.bvid }) };
-      case "subtitle":
-        return getVideoSubtitles({ bvid: context.bvid, cid: context.page.cid, preferredLang: optionalString(args.preferred_lang) });
+      case "subtitle": {
+        const sub = await getVideoSubtitles({ bvid: context.bvid, cid: context.page.cid, preferredLang: optionalString(args.preferred_lang) });
+        return {
+          ...sub,
+          subtitles: Array.isArray(sub?.subtitles) ? sub.subtitles.map(normalizeSubtitleEntry) : [],
+        };
+      }
       case "summary":
         return normalizeAiSummaryOutput(await getAiSummary({ bvid: context.bvid, cid: context.page.cid, upMid: toOptionalNumber(context.videoData?.owner?.mid) }));
       case "snapshot":
