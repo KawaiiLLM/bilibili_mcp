@@ -161,7 +161,7 @@ test("normalizeVideoList unwraps payload list and applies limit", () => {
     ],
     no_more: false,
   };
-  const result = normalizeVideoList(payload, "hot", { limit: 2 });
+  const result: VideoListResult = normalizeVideoList(payload, "hot", { limit: 2 });
   assert.equal(result.list.length, 2);
   assert.equal(result.list[0].bvid, "BV1aaaaaaaaaa");
   assert.equal(result.has_more, true);
@@ -179,7 +179,7 @@ test("normalizeVideoList accepts custom arrayKey for search payload", () => {
     exp_list: { foo: true },
     pageinfo: {},
   };
-  const result = normalizeVideoList(payload, "search", { arrayKey: "result", limit: 5 });
+  const result: VideoListResult = normalizeVideoList(payload, "search", { arrayKey: "result", limit: 5 });
   assert.equal(result.list.length, 1);
   assert.equal(result.list[0].bvid, "BV1xxxxxxxxxx");
   assert.equal(result.page, 1);
@@ -192,7 +192,13 @@ test("normalizeVideoList handles top-level array (related shape)", () => {
     { bvid: "BV1aaaaaaaaaa", aid: 1, title: "first", duration: 10, owner: {}, stat: {} },
     { bvid: "BV1bbbbbbbbbb", aid: 2, title: "second", duration: 20, owner: {}, stat: {} },
   ];
-  const result = normalizeVideoList(payload, "related", { limit: 1 });
+  const result: VideoListResult = normalizeVideoList(payload, "related", { limit: 1 });
   assert.equal(result.list.length, 1);
   assert.equal(result.list[0].title, "first");
+});
+
+test("normalizeVideoList respects no_more=true sentinel", () => {
+  const result: VideoListResult = normalizeVideoList({ list: [], no_more: true }, "hot");
+  assert.equal(result.list.length, 0);
+  assert.equal(result.has_more, false);
 });

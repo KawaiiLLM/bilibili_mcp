@@ -209,7 +209,7 @@ export function normalizeVideoList(
     if (page !== undefined) result.page = page;
     const total = toOptionalPositiveInt(obj.numResults ?? obj.total);
     if (total !== undefined) result.total = total;
-    const hasMore = inferHasMore(obj, items.length, list.length);
+    const hasMore = inferHasMore(obj, items.length, limited.length);
     if (hasMore !== undefined) result.has_more = hasMore;
   }
   return result;
@@ -229,11 +229,11 @@ function toOptionalPositiveInt(value: unknown): number | undefined {
   return Number.isFinite(numeric) && numeric > 0 ? Math.floor(numeric) : undefined;
 }
 
-function inferHasMore(obj: Record<string, unknown>, originalCount: number, normalizedCount: number): boolean | undefined {
+function inferHasMore(obj: Record<string, unknown>, fullCount: number, returnedCount: number): boolean | undefined {
   if (typeof obj.no_more === "boolean") return !obj.no_more;
   if (typeof obj.has_more === "boolean") return obj.has_more;
   const next = Number(obj.next);
   if (Number.isFinite(next) && next > 0) return true;
-  if (originalCount !== normalizedCount) return true;
+  if (returnedCount < fullCount) return true;
   return undefined;
 }
