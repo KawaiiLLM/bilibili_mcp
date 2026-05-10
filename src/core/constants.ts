@@ -1,9 +1,16 @@
 import { config } from "./config.js";
 
-export const BASE_URLS = {
+const BASE_URL_NAMES = ["api", "comment"] as const;
+export type BaseUrlName = (typeof BASE_URL_NAMES)[number];
+
+export const BASE_URLS: Record<BaseUrlName, string> = {
   api: config.baseUrl,
   comment: config.commentBaseUrl,
 };
+
+export function isBaseUrlName(value: string | undefined): value is BaseUrlName {
+  return typeof value === "string" && BASE_URL_NAMES.some((candidate) => candidate === value);
+}
 
 export const DEFAULT_HEADERS = {
   "User-Agent": config.userAgent,

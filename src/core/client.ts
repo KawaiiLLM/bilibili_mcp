@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import type { ApiEndpoint, BilibiliJsonEnvelope, Credential, RequestContext, RequestParams } from "./types.js";
 import { appendBuvidCookies, getBuvidCookies } from "./buvid.js";
 import { cacheManager } from "./cache.js";
-import { BASE_URLS, DEFAULT_HEADERS, DEFAULT_RETRY_OPTIONS, FORM_CONTENT_TYPE, JSON_CONTENT_TYPE } from "./constants.js";
+import { BASE_URLS, DEFAULT_HEADERS, DEFAULT_RETRY_OPTIONS, FORM_CONTENT_TYPE, JSON_CONTENT_TYPE, isBaseUrlName } from "./constants.js";
 import { credentialManager, getBiliJct } from "./credential.js";
 import { BilibiliAPIError, CommentsDisabledError, NetworkError } from "./errors.js";
 import { fetchWithTimeout } from "./fetch.js";
@@ -127,8 +127,10 @@ function buildUrl(endpoint: ApiEndpoint, params: NormalizedParams, pathParams: S
     return encodeURIComponent(String(value));
   });
   if (/^https?:\/\//i.test(replaced)) return new URL(replaced);
-  const base = endpoint.base_url ? BASE_URLS[endpoint.base_url as keyof typeof BASE_URLS] : BASE_URLS.api;
-  if (!base) throw new BilibiliAPIError(`未知 base_url：${endpoint.base_url}`, "BILIBILI_ENDPOINT_INVALID");
+  if (endpoint.base_url !== undefined && !isBaseUrlName(endpoint.base_url)) {
+    throw new BilibiliAPIError(`未知 base_url：${endpoint.base_url}`, "BILIBILI_ENDPOINT_INVALID");
+  }
+  const base = endpoint.base_url ? BASE_URLS[endpoint.base_url] : BASE_URLS.api;
   return new URL(replaced, base);
 }
 

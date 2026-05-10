@@ -80,8 +80,9 @@ function compactListResult(value) {
   const list = Array.isArray(value?.list) ? value.list
     : Array.isArray(value?.items) ? value.items
       : Array.isArray(value?.result) ? value.result
-        : Array.isArray(value?.data?.list) ? value.data.list
-          : [];
+        : Array.isArray(value?.related) ? value.related
+          : Array.isArray(value?.data?.list) ? value.data.list
+            : [];
   return {
     keys: compactObjectKeys(value).keys,
     list_count: list.length,

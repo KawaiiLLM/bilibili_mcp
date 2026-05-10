@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { BilibiliAPIError } from "../../src/core/errors.js";
+import { BilibiliAPIError, ValidationError } from "../../src/core/errors.js";
 import { callTool, getTools } from "../../src/server.js";
 
 test("server exposes exactly four MCP tools", () => {
@@ -32,4 +32,12 @@ test("config status does not expose CookieCloud password", async () => {
   const status = await callTool("bilibili_config", { action: "status" }) as Record<string, unknown>;
   assert.equal(Object.hasOwn(status, "password"), false);
   assert.equal(Object.hasOwn(status, "password_present"), true);
+});
+
+test("read interaction actions reject aid-only targets because cid may be required", async () => {
+  await assert.rejects(
+    () => callTool("bilibili_interaction", { action: "danmaku", aid: 123 }),
+    (error) => error instanceof ValidationError
+      && error.message.includes("aid 只能用于写操作"),
+  );
 });

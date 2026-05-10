@@ -52,7 +52,7 @@ export const videoToolRouter: ToolRouter = {
       case "subtitle":
         return getVideoSubtitles({ bvid: context.bvid, cid: context.page.cid, preferredLang: optionalString(args.preferred_lang) });
       case "summary":
-        return getAiSummary({ bvid: context.bvid, cid: context.page.cid, upMid: toOptionalNumber(context.videoData?.owner?.mid) });
+        return normalizeAiSummaryOutput(await getAiSummary({ bvid: context.bvid, cid: context.page.cid, upMid: toOptionalNumber(context.videoData?.owner?.mid) }));
       case "snapshot":
         return getVideoSnapshot({
           bvid: context.bvid,
@@ -128,8 +128,57 @@ function summarizePages(pages: VideoPageInfo[]): any[] {
 
 function requireVideoAction(args: Record<string, unknown>): VideoAction {
   const action = requireString(TOOL_NAME, args, "action");
-  if (VIDEO_ACTIONS.includes(action as VideoAction)) return action as VideoAction;
+  if (isVideoAction(action)) return action;
   throw new ValidationError("action 不受支持。", { tool: TOOL_NAME, action, fieldErrors: [{ field: "action", message: "不支持的视频 action。", received: action, allowed_values: [...VIDEO_ACTIONS] }] });
+}
+
+function isVideoAction(action: string): action is VideoAction {
+  return VIDEO_ACTIONS.some((candidate) => candidate === action);
+}
+
+export function normalizeAiSummaryOutput(payload: unknown): Record<string, unknown> {
+  const data = toRecord(payload);
+  const model = toRecord(data.model_result);
+  const summary = String(model.summary ?? "").trim();
+  const outline = normalizeAiOutline(model.outline);
+  const code = toNullableNumber(data.code);
+
+  return {
+    available: code === 0 && (summary.length > 0 || outline.length > 0),
+    code,
+    result_type: toNullableNumber(model.result_type),
+    stid: optionalString(data.stid) ?? null,
+    status: toNullableNumber(data.status),
+    like_count: toNullableNumber(data.like_num),
+    dislike_count: toNullableNumber(data.dislike_num),
+    summary,
+    outline,
+  };
+}
+
+function normalizeAiOutline(outline: unknown): Array<Record<string, unknown>> {
+  if (!Array.isArray(outline)) return [];
+  return outline.map((part) => {
+    const record = toRecord(part);
+    return {
+      title: String(record.title ?? "").trim(),
+      timestamp: toNullableNumber(record.timestamp),
+      part_outline: normalizeAiPartOutline(record.part_outline),
+    };
+  });
+}
+
+function normalizeAiPartOutline(items: unknown): Array<Record<string, unknown>> {
+  if (!Array.isArray(items)) return [];
+  return items
+    .map((item) => {
+      const record = toRecord(item);
+      return {
+        timestamp: toNullableNumber(record.timestamp),
+        content: String(record.content ?? "").trim(),
+      };
+    })
+    .filter((item) => item.content.length > 0);
 }
 
 function tryExtractAid(input: string): number | undefined {
@@ -143,4 +192,17 @@ function tryExtractAid(input: string): number | undefined {
 function toOptionalNumber(value: unknown): number | undefined {
   const numeric = Number(value);
   return Number.isFinite(numeric) && numeric > 0 ? numeric : undefined;
+}
+
+function toNullableNumber(value: unknown): number | null {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function toRecord(value: unknown): Record<string, unknown> {
+  return isRecord(value) ? value : {};
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
 }

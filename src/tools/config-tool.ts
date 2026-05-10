@@ -75,7 +75,7 @@ async function getConfigStatus(): Promise<Record<string, unknown>> {
 
 function requireConfigAction(args: Record<string, unknown>): ConfigAction {
   const action = requireString(TOOL_NAME, args, "action");
-  if (CONFIG_ACTIONS.includes(action as ConfigAction)) return action as ConfigAction;
+  if (isConfigAction(action)) return action;
   throw new ValidationError("action 不受支持。", {
     tool: TOOL_NAME,
     action,
@@ -86,4 +86,8 @@ function requireConfigAction(args: Record<string, unknown>): ConfigAction {
       allowed_values: [...CONFIG_ACTIONS],
     }],
   });
+}
+
+function isConfigAction(action: string): action is ConfigAction {
+  return CONFIG_ACTIONS.some((candidate) => candidate === action);
 }

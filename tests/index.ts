@@ -11,5 +11,6 @@ import "./modules/subtitle.test.js";
 import "./modules/comment-danmaku.test.js";
 import "./modules/discovery.test.js";
 import "./modules/action.test.js";
+import "./tools/discovery-tool.test.js";
 import "./tools/tools.test.js";
 import "./tools/video-tool.test.js";

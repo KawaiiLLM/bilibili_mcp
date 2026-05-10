@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { config } from "../../src/core/config.js";
 import { callTool } from "../../src/server.js";
+import { normalizeAiSummaryOutput } from "../../src/tools/video-tool.js";
 import { installMockFetch, jsonResponse } from "../helpers/mock-fetch.js";
 
 test("video resolver falls back from failed BV lookup to search result", async () => {
@@ -93,6 +94,58 @@ test("video snapshot action returns located frame for timestamp", async () => {
     config.rateLimitMs = previousRateLimit;
     fetchMock.restore();
   }
+});
+
+test("video summary output keeps summary and outline but drops raw subtitle blocks", () => {
+  const result = normalizeAiSummaryOutput({
+    code: 0,
+    stid: "summary-id",
+    status: 1,
+    like_num: 2,
+    dislike_num: 0,
+    model_result: {
+      result_type: 2,
+      summary: "视频摘要",
+      outline: [
+        {
+          title: "第一段",
+          timestamp: 12,
+          part_outline: [
+            { timestamp: 13, content: "要点 A" },
+            { timestamp: 24, content: "要点 B" },
+          ],
+        },
+      ],
+      subtitle: [
+        {
+          part_subtitle: [
+            { start_timestamp: 12, end_timestamp: 13, content: "大段字幕" },
+          ],
+        },
+      ],
+    },
+  });
+
+  assert.deepEqual(result, {
+    available: true,
+    code: 0,
+    result_type: 2,
+    stid: "summary-id",
+    status: 1,
+    like_count: 2,
+    dislike_count: 0,
+    summary: "视频摘要",
+    outline: [
+      {
+        title: "第一段",
+        timestamp: 12,
+        part_outline: [
+          { timestamp: 13, content: "要点 A" },
+          { timestamp: 24, content: "要点 B" },
+        ],
+      },
+    ],
+  });
 });
 
 test("module calls accept RequestContext credentials", async () => {

@@ -1,3 +1,5 @@
+import type { BaseUrlName } from "./constants.js";
+
 export const API_FILE_NAMES = ["video", "comment", "danmaku", "search", "ranking", "action"] as const;
 export type ApiFileName = (typeof API_FILE_NAMES)[number];
 export type HttpMethod = "GET" | "POST";
@@ -40,7 +42,7 @@ export interface ApiEndpoint {
   params_type: ParamsType;
   content_type?: ContentType;
   response_type: ResponseType;
-  base_url?: string;
+  base_url?: BaseUrlName;
   referer?: string;
   defaults?: RequestParams;
   comment: string;

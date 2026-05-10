@@ -147,7 +147,7 @@ interface ApiEndpoint {
   // 响应格式
   response_type: "json" | "proto" | "text" | "binary";
   // 路由（仅 url 为相对路径时使用）
-  base_url?: string;                     // constants.ts 中的 key（如 "comment" → comment.bilibili.com）
+  base_url?: "api" | "comment";          // constants.ts 中的 key；仅 url 为相对路径时使用
   referer?: string;                      // 覆盖默认 Referer
   // 默认/固定参数
   defaults?: Record<string, string | number>;  // 固定参数，SDK 调用时自动合并
@@ -159,7 +159,7 @@ interface ApiEndpoint {
 
 **URL 策略**：JSON 文件中的 `url` 字段支持两种写法：
 - **绝对 URL**（推荐）：如 `"https://s.search.bilibili.com/main/hotword"` — 直接使用，无需 `base_url`。参考 bilibili-api 的做法，所有端点都用绝对 URL 可以覆盖任意子域（`s.search.bilibili.com`、`api.vc.bilibili.com` 等），不需要预注册 host 列表。
-- **相对路径**：如 `"/{cid}.xml"` — 需要配合 `base_url` 字段指定 `constants.ts` 中的 key。用于路径含动态片段的特殊情况。
+- **相对路径**：如 `"/{cid}.xml"` — 需要配合 `base_url` 字段指定 `constants.ts` 中的 key。当前只保留实际需要的 `api`/`comment`，用于路径含动态片段的特殊情况。
 
 **参数名映射**：SDK 层使用 camelCase（如 `selectLike`），JSON defaults 和 B 站 API 使用 snake_case（如 `select_like`）。`api-loader.ts` 不做映射，各 SDK 模块在构造 params 时负责使用 API 的原始 snake_case 字段名。这样 JSON 中的 `defaults` 可以直接合并，无需转换。
 
@@ -434,16 +434,15 @@ async function signParams(
 
 ### 4.5 常量 (`core/constants.ts`)
 
-参考 biligo，集中管理 B 站多个子域：
+绝对 URL 是默认策略，`BASE_URLS` 只保留相对路径拼接需要的少量 key：
 
 ```typescript
+const BASE_URL_NAMES = ["api", "comment"] as const;
+export type BaseUrlName = (typeof BASE_URL_NAMES)[number];
+
 export const BASE_URLS = {
   api: "https://api.bilibili.com",
-  main: "https://www.bilibili.com",
   comment: "https://comment.bilibili.com",
-  passport: "https://passport.bilibili.com",
-  live: "https://api.live.bilibili.com",
-  vc: "https://api.vc.bilibili.com",
 } as const;
 ```
 
@@ -874,6 +873,8 @@ GET /x/v3/fav/folder/created/list-all?up_mid={DedeUserID}&type=2&rid={aid}
 MCP 工具层对 SDK 返回的原始数据进行裁剪，只保留 LLM 有用的字段。例如：
 
 - `bilibili_video` action=info：裁掉 `rights`、`dimension`、`argue_info` 等，保留 title/bvid/aid/owner/stat/pages/desc/tags
+- `bilibili_video` action=summary：保留 `summary`、`outline`、摘要状态和反馈计数；裁掉 AI subtitle 原文块，字幕走 `subtitle` action 单独获取
+- `bilibili_discovery` action=related：保留 title/bvid/aid/cid/url/cover/owner/stat/duration/desc/category，并按 `limit` 裁剪；裁掉 rights/dimension/attribute/trackid 等推荐链路字段
 - `bilibili_interaction` action=comments：根据 `detail_level` 参数决定返回的评论字段和数量
 - `bilibili_interaction` action=danmaku：只返回 content/time/type，过滤掉 color/fontSize 等 LLM 不需要的字段
 

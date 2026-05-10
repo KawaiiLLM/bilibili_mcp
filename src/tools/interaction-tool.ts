@@ -64,7 +64,7 @@ export const interactionToolRouter: ToolRouter = {
 };
 
 async function getCommentList(args: Record<string, unknown>): Promise<unknown> {
-  const target = await resolveVideoTarget(args, false);
+  const target = await resolveReadVideoTarget(args);
   return getComments({
     oid: target.aid,
     type: 1,
@@ -75,7 +75,7 @@ async function getCommentList(args: Record<string, unknown>): Promise<unknown> {
 }
 
 async function getReplies(args: Record<string, unknown>): Promise<unknown> {
-  const target = await resolveVideoTarget(args, false);
+  const target = await resolveReadVideoTarget(args);
   const rpid = Math.floor(optionalNumber(TOOL_NAME, args, "rpid") ?? 0);
   if (rpid <= 0) throw new ValidationError("replies action 需要 rpid。", { tool: TOOL_NAME });
   return getCommentReplies({
@@ -88,7 +88,7 @@ async function getReplies(args: Record<string, unknown>): Promise<unknown> {
 }
 
 async function getDanmaku(args: Record<string, unknown>): Promise<unknown> {
-  const target = await resolveVideoTarget(args, false, positiveInteger(optionalNumber(TOOL_NAME, args, "page"), 1, "page", TOOL_NAME));
+  const target = await resolveReadVideoTarget(args, positiveInteger(optionalNumber(TOOL_NAME, args, "page"), 1, "page", TOOL_NAME));
   if (!target.cid) throw new ValidationError("danmaku action 未解析到 cid。", { tool: TOOL_NAME });
   return getXmlDanmaku({
     cid: target.cid,
@@ -127,20 +127,23 @@ async function buildWritePlan(action: WriteAction, args: Record<string, unknown>
   if (action === "follow") {
     const mid = Math.floor(optionalNumber(TOOL_NAME, args, "mid") ?? 0);
     if (mid <= 0) throw new ValidationError("follow action 需要 mid。", { tool: TOOL_NAME });
-    const act = coerceChoice(optionalNumber(TOOL_NAME, args, "act") ?? 1, [1, 2], "act") as 1 | 2;
+    const act = coerceAct(optionalNumber(TOOL_NAME, args, "act") ?? 1);
     return { params: { mid, act }, target: { mid }, description: act === 1 ? `关注用户 ${mid}` : `取消关注用户 ${mid}`, execute: () => followUser({ mid, act }) };
   }
 
-  const target = await resolveVideoTarget(args, true);
+  const target = await resolveWriteVideoTarget(args);
   if (action === "like") {
-    const like = coerceChoice(optionalNumber(TOOL_NAME, args, "like") ?? 1, [1, 2], "like") as 1 | 2;
+    const like = coerceLike(optionalNumber(TOOL_NAME, args, "like") ?? 1);
     return { params: { aid: target.aid, like }, target, description: like === 1 ? `点赞视频 ${target.bvid ?? target.aid}` : `取消点赞视频 ${target.bvid ?? target.aid}`, execute: () => likeVideo({ aid: target.aid, like }) };
   }
   if (action === "coin") {
-    const multiply = coerceChoice(optionalNumber(TOOL_NAME, args, "multiply") ?? 1, [1, 2], "multiply") as 1 | 2;
+    const multiply = coerceMultiply(optionalNumber(TOOL_NAME, args, "multiply") ?? 1);
     const selectLike = optionalNumber(TOOL_NAME, args, "select_like");
-    const params = { aid: target.aid, multiply, selectLike: selectLike === undefined ? undefined : coerceChoice(selectLike, [0, 1], "select_like") };
-    return { params, target, description: `给视频 ${target.bvid ?? target.aid} 投 ${multiply} 个硬币`, execute: () => coinVideo(params as { aid: number; multiply: 1 | 2; selectLike?: 0 | 1 }) };
+    const params: { aid: number; multiply: 1 | 2; selectLike?: 0 | 1 } = { aid: target.aid, multiply };
+    if (selectLike !== undefined) {
+      params.selectLike = coerceSelectLike(selectLike);
+    }
+    return { params, target, description: `给视频 ${target.bvid ?? target.aid} 投 ${multiply} 个硬币`, execute: () => coinVideo(params) };
   }
   const params = {
     aid: target.aid,
@@ -151,25 +154,64 @@ async function buildWritePlan(action: WriteAction, args: Record<string, unknown>
   return { params, target, description: `调整视频 ${target.bvid ?? target.aid} 的收藏关系`, execute: () => favoriteVideo(params) };
 }
 
-async function resolveVideoTarget(args: Record<string, unknown>, allowAid: boolean, page = 1): Promise<{ aid: number; bvid?: string; cid?: number; page?: number }> {
+async function resolveReadVideoTarget(args: Record<string, unknown>, page = 1): Promise<{ aid: number; bvid: string; cid: number; page: number }> {
   const aid = optionalNumber(TOOL_NAME, args, "aid");
-  if (allowAid && aid && aid > 0) return { aid: Math.floor(aid) };
+  if (aid && aid > 0 && !optionalString(args.input)) {
+    throw new ValidationError("aid 只能用于写操作；读评论、回复和弹幕需要 input 来解析 bvid/cid。", {
+      tool: TOOL_NAME,
+      fieldErrors: [
+        { field: "aid", message: "aid-only 目标不适用于读操作。", received: aid },
+        { field: "input", message: "请传入 BV号、AV号、视频链接或关键词。" },
+      ],
+    });
+  }
   const context = await resolveVideoContext(requireString(TOOL_NAME, args, "input"), page);
+  return { aid: context.aid, bvid: context.bvid, cid: context.page.cid, page: context.page.page };
+}
+
+async function resolveWriteVideoTarget(args: Record<string, unknown>): Promise<{ aid: number; bvid?: string; cid?: number; page?: number }> {
+  const aid = optionalNumber(TOOL_NAME, args, "aid");
+  if (aid && aid > 0) return { aid: Math.floor(aid) };
+  const context = await resolveVideoContext(requireString(TOOL_NAME, args, "input"), 1);
   return { aid: context.aid, bvid: context.bvid, cid: context.page.cid, page: context.page.page };
 }
 
 function requireInteractionAction(args: Record<string, unknown>): InteractionAction {
   const action = requireString(TOOL_NAME, args, "action");
-  if (INTERACTION_ACTIONS.includes(action as InteractionAction)) return action as InteractionAction;
+  if (isInteractionAction(action)) return action;
   throw new ValidationError("action 不受支持。", { tool: TOOL_NAME, action, fieldErrors: [{ field: "action", message: "不支持的互动 action。", received: action, allowed_values: [...INTERACTION_ACTIONS] }] });
 }
 
-function coerceMode(value: number | undefined): 0 | 1 | 2 | 3 {
-  return coerceChoice(value ?? 3, [0, 1, 2, 3], "mode") as 0 | 1 | 2 | 3;
+function isInteractionAction(action: string): action is InteractionAction {
+  return INTERACTION_ACTIONS.some((candidate) => candidate === action);
 }
 
-function coerceChoice(value: number, allowed: number[], field: string): number {
+function coerceMode(value: number | undefined): 0 | 1 | 2 | 3 {
+  const mode = Math.floor(value ?? 3);
+  if (mode === 0 || mode === 1 || mode === 2 || mode === 3) return mode;
+  throw new ValidationError("mode 不在允许范围。", { tool: TOOL_NAME });
+}
+
+function coerceAct(value: number): 1 | 2 {
+  const act = Math.floor(value);
+  if (act === 1 || act === 2) return act;
+  throw new ValidationError("act 不在允许范围。", { tool: TOOL_NAME });
+}
+
+function coerceLike(value: number): 1 | 2 {
+  const like = Math.floor(value);
+  if (like === 1 || like === 2) return like;
+  throw new ValidationError("like 不在允许范围。", { tool: TOOL_NAME });
+}
+
+function coerceMultiply(value: number): 1 | 2 {
+  const multiply = Math.floor(value);
+  if (multiply === 1 || multiply === 2) return multiply;
+  throw new ValidationError("multiply 不在允许范围。", { tool: TOOL_NAME });
+}
+
+function coerceSelectLike(value: number): 0 | 1 {
   const numeric = Math.floor(value);
-  if (allowed.includes(numeric)) return numeric;
-  throw new ValidationError(`${field} 不在允许范围。`, { tool: TOOL_NAME });
+  if (numeric === 0 || numeric === 1) return numeric;
+  throw new ValidationError("select_like 不在允许范围。", { tool: TOOL_NAME });
 }
