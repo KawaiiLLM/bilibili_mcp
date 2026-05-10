@@ -1,5 +1,6 @@
 import { getEndpoint } from "../core/api-loader.js";
 import { request } from "../core/client.js";
+import { normalizeAbsoluteUrl } from "../tools/normalize.js";
 import type { RequestContext } from "../core/types.js";
 
 export interface SnapshotMeta {
@@ -56,7 +57,7 @@ export function locateFrame(meta: SnapshotMeta, targetSeconds: number): FrameLoc
   const imageIndex = Math.min(image.length - 1, Math.floor(frameIndex / framesPerImage));
   const offset = frameIndex % framesPerImage;
   return {
-    imageUrl: normalizeImageUrl(image[imageIndex]),
+    imageUrl: normalizeAbsoluteUrl(image[imageIndex]),
     frameIndex,
     timestamp: index[frameIndex],
     x: (offset % columns) * width,
@@ -83,9 +84,4 @@ function findNearestIndex(index: number[], targetSeconds: number): number {
 function positiveInteger(value: unknown, fallback: number): number {
   const numeric = Number(value);
   return Number.isFinite(numeric) && numeric > 0 ? Math.floor(numeric) : fallback;
-}
-
-function normalizeImageUrl(url: unknown): string {
-  const value = String(url ?? "");
-  return value.startsWith("//") ? `https:${value}` : value;
 }

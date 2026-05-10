@@ -1,6 +1,7 @@
 import { BilibiliAPIError } from "../core/errors.js";
 import { getPlayerInfo } from "./video.js";
 import { checkLoginStatus } from "./auth.js";
+import { normalizeAbsoluteUrl } from "../tools/normalize.js";
 import type { RequestContext } from "../core/types.js";
 
 export async function getVideoSubtitles(input: {
@@ -31,7 +32,7 @@ export async function getVideoSubtitles(input: {
     subtitles,
     selected_language: selected?.lan,
     selected_language_label: selected?.lan_doc,
-    selected_url: normalizeSubtitleUrl(selected?.subtitle_url),
+    selected_url: optionalUrl(selected?.subtitle_url),
   };
 }
 
@@ -48,7 +49,10 @@ export function selectBestSubtitle(subtitles: any[], preferredLang?: string): an
 }
 
 export function normalizeSubtitleUrl(url: unknown): string | undefined {
-  if (typeof url !== "string" || url.trim().length === 0) return undefined;
-  const trimmed = url.trim();
-  return trimmed.startsWith("//") ? `https:${trimmed}` : trimmed;
+  return optionalUrl(url);
+}
+
+function optionalUrl(url: unknown): string | undefined {
+  const value = normalizeAbsoluteUrl(url);
+  return value ? value : undefined;
 }
