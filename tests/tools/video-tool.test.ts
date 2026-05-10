@@ -176,14 +176,16 @@ test("video subtitle entries strip internal fields and infer ai_generated", asyn
   config.cookieCloudEndpoint = "http://stub/";
   config.cookieCloudUuid = "stub-uuid";
   config.cookieCloudPassword = "stub-password";
-  const credentialState = credentialManager as unknown as { credentials: unknown };
+  const credentialState = credentialManager as unknown as { credentials: unknown; refreshPromise: unknown };
   const previousCredentials = credentialState.credentials;
+  const previousRefreshPromise = credentialState.refreshPromise;
   credentialState.credentials = {
     cookieHeader: "SESSDATA=session; bili_jct=csrf-token; DedeUserID=42",
     cookies: [],
     refreshedAt: Date.now(),
-    refreshAt: Date.now() + 60_000,
+    refreshAt: Date.now() + 3_600_000,
   };
+  credentialState.refreshPromise = null;
   const fetchMock = installMockFetch((url) => {
     if (url.pathname === "/x/web-interface/view") {
       return jsonResponse({
@@ -258,6 +260,7 @@ test("video subtitle entries strip internal fields and infer ai_generated", asyn
     config.cookieCloudUuid = previousCookieCloud.uuid;
     config.cookieCloudPassword = previousCookieCloud.password;
     credentialState.credentials = previousCredentials;
+    credentialState.refreshPromise = previousRefreshPromise;
     fetchMock.restore();
   }
 });
