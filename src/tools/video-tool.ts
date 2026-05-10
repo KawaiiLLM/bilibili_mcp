@@ -86,9 +86,9 @@ async function resolveVideoData(input: string): Promise<any> {
     if (aid) return getVideoInfo({ aid });
   }
   const searchResult = await searchVideos({ keyword: normalized, page: 1, pageSize: 1 });
-  const first = Array.isArray(searchResult?.results) ? searchResult.results[0] : undefined;
+  const first = Array.isArray(searchResult?.result) ? searchResult.result[0] : undefined;
   if (!first?.bvid) {
-    throw new BilibiliAPIError("没有找到匹配的视频。", "VIDEO_NOT_FOUND", undefined, searchResult?.raw);
+    throw new BilibiliAPIError("没有找到匹配的视频。", "VIDEO_NOT_FOUND", undefined, searchResult);
   }
   return getVideoInfo({ bvid: first.bvid });
 }

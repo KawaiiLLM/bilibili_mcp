@@ -3,7 +3,7 @@ import { getHotSearchKeywords, getSearchSuggestions, searchAll, searchByType } f
 import { getHotVideos, getMustWatch, getRanking, getWeeklySeries } from "../modules/ranking.js";
 import { getRelatedVideos } from "../modules/recommend.js";
 import { formatDuration } from "../modules/video.js";
-import { stripHtml } from "../modules/search.js";
+import { stripHtml } from "./normalize.js";
 import { assertAllowedArgs, optionalNumber, optionalString, positiveInteger, requireString, type ToolRouter } from "./common.js";
 import { resolveVideoContext } from "./video-tool.js";
 
