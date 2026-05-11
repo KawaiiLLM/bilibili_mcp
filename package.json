@@ -15,7 +15,7 @@
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
     "clean:test": "node -e \"require('fs').rmSync('dist-test',{recursive:true,force:true})\"",
     "build": "npm run clean && tsc && node scripts/copy-assets.mjs dist",
-    "test": "npm run clean:test && tsc -p tsconfig.test.json && node scripts/copy-assets.mjs dist-test/src && node --test \"dist-test/tests/**/*.test.js\"",
+    "test": "npm run clean:test && tsc -p tsconfig.test.json && node scripts/copy-assets.mjs dist-test/src && NODE_ENV=test node --test \"dist-test/tests/**/*.test.js\"",
     "watch": "tsc --watch",
     "start": "node dist/index.js",
     "start:http": "node dist/cli.js http",
