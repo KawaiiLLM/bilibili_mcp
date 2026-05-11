@@ -24,11 +24,25 @@ export async function getPlayerInfo(input: { bvid: string; cid: number }, ctx?: 
   }, ctx);
 }
 
-export async function getPlayUrl(input: { bvid: string; cid: number; qn?: number }, ctx?: RequestContext): Promise<any> {
+export interface GetPlayUrlInput {
+  bvid: string;
+  cid: number;
+  qn?: number;
+  tryLook?: boolean;
+  platform?: "pc" | "html5";
+  fnval?: number;
+  fourk?: number;
+}
+
+export async function getPlayUrl(input: GetPlayUrlInput, ctx?: RequestContext): Promise<any> {
   return request(getEndpoint("video", "info", "get_playurl"), {
     bvid: input.bvid,
     cid: input.cid,
     qn: input.qn,
+    try_look: input.tryLook ? 1 : undefined,
+    platform: input.platform,
+    fnval: input.fnval,
+    fourk: input.fourk,
   }, ctx);
 }
 
