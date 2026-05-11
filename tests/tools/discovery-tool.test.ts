@@ -260,3 +260,118 @@ test("discovery following requires SESSDATA and propagates cursor", async () => 
     fetchMock.restore();
   }
 });
+
+test("discovery space_videos requires mid", async () => {
+  await assert.rejects(
+    () => callTool("discovery", { action: "space_videos" }),
+    (err) => err instanceof Error && /mid/i.test(err.message),
+  );
+});
+
+test("discovery space_videos rejects unknown order", async () => {
+  await assert.rejects(
+    () => callTool("discovery", { action: "space_videos", mid: 1, order: "bogus" }),
+    (err) => err instanceof Error && /order/i.test(err.message),
+  );
+});
+
+test("discovery space_videos dispatches to module with shaped args", async () => {
+  const previousRateLimit = config.rateLimitMs;
+  config.rateLimitMs = 0;
+  let capturedUrl: URL | undefined;
+  const fetchMock = installMockFetch((url) => {
+    if (url.pathname === "/x/web-interface/nav") {
+      return jsonResponse({
+        code: 0,
+        data: {
+          wbi_img: {
+            img_url: "https://i0.hdslb.com/bfs/wbi/abcdefghijklmnopqrstuvwxyz123456.png",
+            sub_url: "https://i0.hdslb.com/bfs/wbi/ABCDEFGHIJKLMNOPQRSTUVWXYZ123456.png",
+          },
+        },
+      });
+    }
+    if (url.pathname === "/x/frontend/finger/spi") {
+      return jsonResponse({ code: 0, data: { b_3: "buvid3", b_4: "buvid4" } });
+    }
+    if (url.pathname === "/x/space/wbi/arc/search") {
+      capturedUrl = url;
+      return jsonResponse({ code: 0, data: { list: { slist: [], tlist: {}, vlist: [] }, page: { count: 0, pn: 2, ps: 5 } } });
+    }
+    return jsonResponse({ code: -404 });
+  });
+
+  try {
+    const result = await callTool("discovery", {
+      action: "space_videos",
+      mid: 9999,
+      order: "stow",
+      page: 2,
+      limit: 5,
+    }) as any;
+    assert.equal(result.mid, 9999);
+    assert.ok(capturedUrl);
+    assert.equal(capturedUrl!.searchParams.get("mid"), "9999");
+    assert.equal(capturedUrl!.searchParams.get("order"), "stow");
+    assert.equal(capturedUrl!.searchParams.get("pn"), "2");
+    assert.equal(capturedUrl!.searchParams.get("ps"), "5");
+  } finally {
+    config.rateLimitMs = previousRateLimit;
+    fetchMock.restore();
+  }
+});
+
+test("discovery space_info requires mid", async () => {
+  await assert.rejects(
+    () => callTool("discovery", { action: "space_info" }),
+    (err) => err instanceof Error && /mid/i.test(err.message),
+  );
+});
+
+test("discovery space_info dispatches and returns shaped profile", async () => {
+  const fetchMock = installMockFetch((url) => {
+    if (url.pathname === "/x/web-interface/nav") {
+      return jsonResponse({
+        code: 0,
+        data: {
+          wbi_img: {
+            img_url: "https://i0.hdslb.com/bfs/wbi/abcdefghijklmnopqrstuvwxyz123456.png",
+            sub_url: "https://i0.hdslb.com/bfs/wbi/ABCDEFGHIJKLMNOPQRSTUVWXYZ123456.png",
+          },
+        },
+      });
+    }
+    if (url.pathname === "/x/frontend/finger/spi") {
+      return jsonResponse({ code: 0, data: { b_3: "buvid3", b_4: "buvid4" } });
+    }
+    if (url.pathname === "/x/space/wbi/acc/info") {
+      return jsonResponse({
+        code: 0,
+        data: {
+          mid: 8210306, name: "测试", sex: "保密",
+          face: "//i0.hdslb.com/face.jpg", top_photo: "//i0.hdslb.com/banner.png",
+          sign: "", level: 4, is_senior_member: 0, birthday: "",
+          school: { name: null }, tags: null,
+          pendant: { name: "" },
+          fans_medal: { medal: null },
+          official: { type: -1, title: "", desc: "" },
+          profession: { is_show: 0 },
+          vip: { status: 0, due_date: 0, label: { text: "" } },
+          live_room: { roomStatus: 0 },
+          sys_notice: {},
+          is_followed: false,
+        },
+      });
+    }
+    return jsonResponse({ code: -404 });
+  });
+
+  try {
+    const result = await callTool("discovery", { action: "space_info", mid: 8210306 }) as any;
+    assert.equal(result.mid, 8210306);
+    assert.equal(result.name, "测试");
+    assert.equal(result.space_url, "https://space.bilibili.com/8210306");
+  } finally {
+    fetchMock.restore();
+  }
+});

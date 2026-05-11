@@ -3,6 +3,7 @@ import { getSearchSuggestions, searchByType, searchVideos } from "../modules/sea
 import { getHotVideos, getHomeRecommend, getMustWatch, getRanking, getWeeklySeries } from "../modules/ranking.js";
 import { getFollowingVideos } from "../modules/dynamic.js";
 import { getRelatedVideos } from "../modules/recommend.js";
+import { getSpaceInfo, getSpaceVideos, type SpaceOrder } from "../modules/space.js";
 import { assertAllowedArgs, optionalNumber, optionalString, positiveInteger, requireString, type ToolRouter } from "./common.js";
 import { normalizeVideoList } from "./normalize.js";
 import { resolveVideoContext } from "./video-tool.js";
@@ -19,6 +20,8 @@ const DISCOVERY_ACTIONS = [
   "related",
   "home",
   "following",
+  "space_videos",
+  "space_info",
 ] as const;
 type DiscoveryAction = (typeof DISCOVERY_ACTIONS)[number];
 
@@ -38,16 +41,21 @@ export const discoveryToolRouter: ToolRouter = {
         type: { type: "string", description: "排行榜类型，默认 all" },
         input: { type: "string", description: "related 使用的视频输入" },
         cursor: { type: "string", description: "翻页游标，仅 following 使用" },
+        mid: { type: "number", description: "UP 主 mid，space_videos / space_info 必填" },
+        order: { type: "string", description: "投稿排序：pubdate / click / stow，仅 space_videos 使用" },
       },
       required: ["action"],
       additionalProperties: false,
     },
   },
   async call(args: Record<string, unknown>): Promise<unknown> {
-    assertAllowedArgs(TOOL_NAME, args, ["action", "keyword", "search_type", "page", "limit", "rid", "type", "input", "cursor"]);
+    assertAllowedArgs(TOOL_NAME, args, ["action", "keyword", "search_type", "page", "limit", "rid", "type", "input", "cursor", "mid", "order"]);
     const action = requireDiscoveryAction(args);
     const page = positiveInteger(optionalNumber(TOOL_NAME, args, "page"), 1, "page", TOOL_NAME);
-    const defaultLimit = action === "hot" || action === "home" ? 20 : 10;
+    const defaultLimit =
+      action === "hot" || action === "home" ? 20
+      : action === "space_videos" ? 30
+      : 10;
     const limit = positiveInteger(optionalNumber(TOOL_NAME, args, "limit"), defaultLimit, "limit", TOOL_NAME);
     switch (action) {
       case "search": {
@@ -92,6 +100,16 @@ export const discoveryToolRouter: ToolRouter = {
         return getHomeRecommend({ limit });
       case "following":
         return getFollowingVideos({ limit, cursor: optionalString(args.cursor) });
+      case "space_videos":
+        return getSpaceVideos({
+          mid: requireMid(args),
+          order: optionalSpaceOrder(args.order),
+          keyword: optionalString(args.keyword),
+          page,
+          limit,
+        });
+      case "space_info":
+        return getSpaceInfo({ mid: requireMid(args) });
     }
   },
 };
@@ -104,4 +122,25 @@ function requireDiscoveryAction(args: Record<string, unknown>): DiscoveryAction 
 
 function isDiscoveryAction(action: string): action is DiscoveryAction {
   return DISCOVERY_ACTIONS.some((candidate) => candidate === action);
+}
+
+function requireMid(args: Record<string, unknown>): number {
+  const value = optionalNumber(TOOL_NAME, args, "mid");
+  if (value === undefined || !Number.isInteger(value) || value <= 0) {
+    throw new ValidationError("mid 是必填的正整数。", {
+      tool: TOOL_NAME,
+      fieldErrors: [{ field: "mid", message: "mid 必须是大于 0 的整数。", received: args.mid }],
+    });
+  }
+  return value;
+}
+
+function optionalSpaceOrder(value: unknown): SpaceOrder | undefined {
+  const raw = optionalString(value);
+  if (!raw) return undefined;
+  if (raw === "pubdate" || raw === "click" || raw === "stow") return raw;
+  throw new ValidationError("order 不受支持。", {
+    tool: TOOL_NAME,
+    fieldErrors: [{ field: "order", message: "仅支持 pubdate / click / stow", received: raw }],
+  });
 }
