@@ -76,3 +76,47 @@ test("getBiliTicket dedupes concurrent calls into single fetch", async () => {
     clearTicketCache();
   }
 });
+
+test("getBiliTicket returns undefined on HTTP 503", async () => {
+  clearTicketCache();
+  const fetchMock = installMockFetch(() => new Response("upstream down", { status: 503 }));
+  try {
+    const ticket = await getBiliTicket();
+    assert.equal(ticket, undefined);
+  } finally {
+    fetchMock.restore();
+    clearTicketCache();
+  }
+});
+
+test("getBiliTicket returns undefined when Bilibili returns code != 0", async () => {
+  clearTicketCache();
+  const fetchMock = installMockFetch(() =>
+    jsonResponse({ code: -101, message: "未登录" }),
+  );
+  try {
+    const ticket = await getBiliTicket();
+    assert.equal(ticket, undefined);
+  } finally {
+    fetchMock.restore();
+    clearTicketCache();
+  }
+});
+
+test("getBiliTicket failure does not poison cache", async () => {
+  clearTicketCache();
+  let fetchCount = 0;
+  const fetchMock = installMockFetch(() => {
+    fetchCount += 1;
+    if (fetchCount === 1) return new Response("err", { status: 500 });
+    return jsonResponse({ code: 0, data: { ticket: "recovered" } });
+  });
+  try {
+    assert.equal(await getBiliTicket(), undefined);
+    assert.equal(await getBiliTicket(), "recovered");
+    assert.equal(fetchCount, 2);
+  } finally {
+    fetchMock.restore();
+    clearTicketCache();
+  }
+});
