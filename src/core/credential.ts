@@ -1,7 +1,7 @@
-import { access, readFile, unlink, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { createDecipheriv, createHash } from "node:crypto";
-import { config } from "./config.js";
+import { config, CONFIG_DIR, CONFIG_ENV_PATH } from "./config.js";
 import { BilibiliAPIError, NetworkError } from "./errors.js";
 import { logger } from "./logger.js";
 import type { CookieCloudCookie, Credential } from "./types.js";
@@ -38,7 +38,8 @@ export class CredentialManager {
       password: config.cookieCloudPassword,
     };
     const previousCredentials = this.credentials;
-    const envPath = resolve(process.cwd(), ".env");
+    await mkdir(CONFIG_DIR, { recursive: true });
+    const envPath = CONFIG_ENV_PATH;
     const snapshot = await readEnvSnapshot(envPath);
 
     let nextEnv = snapshot.content;

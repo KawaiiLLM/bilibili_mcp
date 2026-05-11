@@ -1,3 +1,5 @@
+export declare const CONFIG_DIR: string;
+export declare const CONFIG_ENV_PATH: string;
 export interface Config {
     logLevel: "debug" | "info" | "warn" | "error" | "silent";
     rateLimitMs: number;
