@@ -483,6 +483,97 @@ AI 生成的视频摘要。需要登录态。
 
 仅返回 `DYNAMIC_TYPE_AV` 与 `DYNAMIC_TYPE_UGC_SEASON` 类型(投稿视频与合集更新),转发动态等暂不支持。`stat` 仅含 `view`/`danmaku` (上游限制),需要更完整统计调用 `video info`。
 
+#### action: `space_videos`
+
+查询某 UP 主的投稿列表。WBI 签名,登录态可选。
+
+| 参数 | 类型 | 必填 | 默认 | 说明 |
+|---|---|---|---|---|
+| `mid` | number | 是 | — | UP 主 mid |
+| `order` | string | 否 | `pubdate` | `pubdate` / `click` / `stow` |
+| `keyword` | string | 否 | — | 在该 UP 投稿内按关键词过滤 |
+| `page` | number | 否 | 1 | 页码 |
+| `limit` | number | 否 | 30 | 每页项数,上限 50 |
+
+```json
+{ "action": "space_videos", "mid": 25329395, "order": "click", "limit": 20 }
+
+// 返回
+{
+  "mid": 25329395,
+  "items": [
+    {
+      "bvid": "BV1xxxx",
+      "url": "https://www.bilibili.com/video/BV1xxxx",
+      "aid": 123456,
+      "title": "视频标题",
+      "cover": "https://i0.hdslb.com/bfs/archive/xxx.jpg",
+      "duration_text": "06:00",
+      "description": "视频简介",
+      "publish_time": 1778500000,
+      "stat": { "view": 12345, "danmaku": 56, "comment": 89 },
+      "category": { "tid": 28, "name": "原创音乐" },
+      "is_union_video": false,
+      "is_live_playback": false,
+      "season_id": null,
+      "meta": null
+    }
+  ],
+  "page": { "current": 1, "size": 30, "total": 234 },
+  "categories": [
+    { "tid": 28, "name": "原创音乐", "count": 100 },
+    { "tid": 188, "name": "数码", "count": 134 }
+  ]
+}
+```
+
+`stat` 仅含 `view`/`danmaku`/`comment` (上游字段),需要点赞/投币/收藏调用 `video info`。`meta` 在视频属于某合集时返回 `{id, title, intro}`,否则 `null`。
+
+#### action: `space_info`
+
+查询某 UP 主资料卡。WBI 签名,登录态可选(登录后 `is_followed` 准确)。
+
+| 参数 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `mid` | number | 是 | UP 主 mid |
+
+```json
+{ "action": "space_info", "mid": 25329395 }
+
+// 返回
+{
+  "mid": 25329395,
+  "name": "Sacrive",
+  "sex": "男",
+  "avatar": "https://i0.hdslb.com/bfs/face/xxx.jpg",
+  "banner": "https://i0.hdslb.com/bfs/space/xxx.png",
+  "sign": "个人签名",
+  "level": 6,
+  "is_senior_member": true,
+  "birthday": "11-15",
+  "school": null,
+  "tags": ["音乐", "游戏"],
+  "pendant": "夏日祭",
+  "fans_medal": { "name": "魔法", "level": 20, "target_mid": 12345 },
+  "official": { "verified": true, "type": "personal", "title": "bilibili 知名UP主", "desc": null },
+  "profession": null,
+  "vip": { "active": true, "label": "年度大会员", "due_date": 1810000000000 },
+  "live_room": { "roomid": 12345, "is_live": false, "title": "直播间标题", "cover": "https://...", "url": "https://live.bilibili.com/12345" },
+  "sys_notice": null,
+  "is_followed": false,
+  "space_url": "https://space.bilibili.com/25329395"
+}
+```
+
+字段说明:
+- `fans_medal` — UP 主自己佩戴的某 UP 的粉丝牌(不是 UP 主自己的粉丝牌名字),无佩戴则 `null`
+- `profession` — 仅在 UP 主开启职业资质展示时返回 `{name, department, title}`,否则 `null`
+- `live_room` — 没开通直播间则 `null`
+- `sys_notice` — B 站警示黄条文案(如"该用户存在争议行为"),无则 `null`
+- `is_followed` — 当前登录账号是否关注该 UP;未登录恒为 `false`
+
+剔除了头像框图片 url、勋章铭牌、各种 NFT 字段、内部枚举等噪声字段;如需原始字段请直接调用 `/x/space/wbi/acc/info`。
+
 ---
 
 ### config
@@ -596,7 +687,7 @@ BILIBILI_MCP_COOKIECLOUD_PASSWORD=your-cookiecloud-password
 ## 开发
 
 ```bash
-npm test          # 132 tests
+npm test          # 152 tests
 npm run check     # 启动前自检
 npm run watch     # tsc --watch
 ```
