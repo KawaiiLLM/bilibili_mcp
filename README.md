@@ -414,6 +414,75 @@ AI 生成的视频摘要。需要登录态。
 { "action": "related", "input": "BV19v411r76g" }
 ```
 
+#### action: `home`
+
+获取首页推荐视频流。未登录时返回大众化推荐,登录后个性化。每次调用返回新一批(基于 `fresh_idx`)。
+
+```json
+// 请求
+{ "action": "home", "limit": 20 }
+
+// 返回
+{
+  "items": [
+    {
+      "bvid": "BV1xxxx",
+      "url": "https://www.bilibili.com/video/BV1xxxx",
+      "aid": 12345,
+      "cid": 67890,
+      "title": "视频标题",
+      "cover": "https://i0.hdslb.com/bfs/archive/xxx.jpg",
+      "duration_seconds": 360,
+      "duration_text": "06:00",
+      "owner": { "mid": 25329395, "name": "Sacrive", "avatar": "https://..." },
+      "stat": { "view": 170796, "danmaku": 2195, "like": 7111 },
+      "publish_time": 1778500000,
+      "is_followed": true,
+      "reason": "已关注"
+    }
+  ]
+}
+```
+
+`reason` 取值: `"已关注"` / `"高点赞"` / 上游 `content` 原文 / `null`。`limit` 默认 20,最大 30。
+
+#### action: `following`
+
+获取关注的 UP 主投稿视频。**必须登录**(SESSDATA 缺失时报 `BILIBILI_COOKIE_INVALID`),按发布时间倒序,翻页用 `cursor`。
+
+```json
+// 第一次调用
+{ "action": "following", "limit": 15 }
+
+// 翻页(把上次返回的 cursor 传回来)
+{ "action": "following", "limit": 15, "cursor": "966873782060843027" }
+
+// 返回
+{
+  "items": [
+    {
+      "bvid": "BV1xxxx",
+      "aid": 12345,
+      "title": "视频标题",
+      "cover": "https://i0.hdslb.com/bfs/archive/xxx.jpg",
+      "duration_text": "06:00",
+      "desc": "动态描述,可能为空字符串",
+      "jump_url": "https://www.bilibili.com/video/BV1xxxx/",
+      "stat": { "view": 1234, "danmaku": 5 },
+      "publish_time": 1778500000,
+      "publish_text": "刚刚",
+      "author": { "mid": 25329395, "name": "UP主", "avatar": "https://..." },
+      "dynamic_id": "966887968322093078"
+    }
+  ],
+  "cursor": "966873782060843027",
+  "has_more": true,
+  "update_baseline": "966887968322093078"
+}
+```
+
+仅返回 `DYNAMIC_TYPE_AV` 与 `DYNAMIC_TYPE_UGC_SEASON` 类型(投稿视频与合集更新),转发动态等暂不支持。`stat` 仅含 `view`/`danmaku` (上游限制),需要更完整统计调用 `bilibili_video info`。
+
 ---
 
 ### bilibili_config
@@ -527,7 +596,7 @@ BILIBILI_MCP_COOKIECLOUD_PASSWORD=your-cookiecloud-password
 ## 开发
 
 ```bash
-npm test          # 122 tests
+npm test          # 132 tests
 npm run check     # 启动前自检
 npm run watch     # tsc --watch
 ```
