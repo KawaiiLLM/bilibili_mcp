@@ -462,7 +462,7 @@ CookieCloud 配置管理。
 { "configured": true, "saved_to": ".env", "status": { "login": { "is_login": true } } }
 ```
 
-## 反爬基线
+## 请求管线
 
 每个出站请求都自动注入:
 
@@ -546,10 +546,6 @@ docs/
   superpowers/specs/  设计文档
   superpowers/plans/  实施计划
 ```
-
-## 项目边界
-
-仓库根目录 `bilibili-api/` / `biliscope-mcp/` / `bilibili-API-collect/` 是参考资料,**不**作为本项目源码的一部分。
 
 ## License
 
