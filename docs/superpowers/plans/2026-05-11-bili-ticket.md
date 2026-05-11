@@ -28,7 +28,7 @@ import { _hmacSha256ForTest } from "../../src/core/ticket.js";
 
 test("hmacSha256 produces stable hash for known ticket input", () => {
   // Reference: Python hmac.new(b"XgwSnGZ1p", b"ts1700000000", hashlib.sha256).hexdigest()
-  const expected = "97d6c8e29c98c2bd7eb6f9d7eedfd2cf01a8a0e58a4b5f4f30c728a48a4dbf48";
+  const expected = "bb79f0d980ffbb51597aa1a3e8b55603025cc1322ac766f4c1a98852e6182514";
   assert.equal(_hmacSha256ForTest("XgwSnGZ1p", "ts1700000000"), expected);
 });
 ```
