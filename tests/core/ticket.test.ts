@@ -31,3 +31,45 @@ test("getBiliTicket fetches ticket via GenWebTicket POST", async () => {
     clearTicketCache();
   }
 });
+
+test("getBiliTicket returns cached value while not expired", async () => {
+  clearTicketCache();
+  let fetchCount = 0;
+  const fetchMock = installMockFetch(() => {
+    fetchCount += 1;
+    return jsonResponse({ code: 0, data: { ticket: `t-${fetchCount}` } });
+  });
+  try {
+    const first = await getBiliTicket();
+    const second = await getBiliTicket();
+    assert.equal(first, "t-1");
+    assert.equal(second, "t-1");
+    assert.equal(fetchCount, 1);
+  } finally {
+    fetchMock.restore();
+    clearTicketCache();
+  }
+});
+
+test("getBiliTicket dedupes concurrent calls into single fetch", async () => {
+  clearTicketCache();
+  let fetchCount = 0;
+  const fetchMock = installMockFetch(async () => {
+    fetchCount += 1;
+    await new Promise((r) => setTimeout(r, 20));
+    return jsonResponse({ code: 0, data: { ticket: "concurrent" } });
+  });
+  try {
+    const tickets = await Promise.all([
+      getBiliTicket(),
+      getBiliTicket(),
+      getBiliTicket(),
+      getBiliTicket(),
+    ]);
+    assert.deepEqual(tickets, ["concurrent", "concurrent", "concurrent", "concurrent"]);
+    assert.equal(fetchCount, 1);
+  } finally {
+    fetchMock.restore();
+    clearTicketCache();
+  }
+});

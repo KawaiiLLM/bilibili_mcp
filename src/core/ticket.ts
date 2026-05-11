@@ -12,6 +12,7 @@ interface CachedTicket {
 }
 
 let cached: CachedTicket | null = null;
+let inFlight: Promise<CachedTicket | undefined> | null = null;
 
 function hmacSha256(key: string, message: string): string {
   return createHmac("sha256", key).update(message).digest("hex");
@@ -21,10 +22,20 @@ export const _hmacSha256ForTest = hmacSha256;
 
 export function clearTicketCache(): void {
   cached = null;
+  inFlight = null;
 }
 
 export async function getBiliTicket(signal?: AbortSignal): Promise<string | undefined> {
-  const fetched = await fetchTicket(signal);
+  const now = Date.now();
+  if (cached && now < cached.expireAt) return cached.value;
+  if (inFlight) {
+    const pending = await inFlight;
+    return pending?.value;
+  }
+  inFlight = fetchTicket(signal).finally(() => {
+    inFlight = null;
+  });
+  const fetched = await inFlight;
   if (!fetched) return undefined;
   cached = fetched;
   return fetched.value;
