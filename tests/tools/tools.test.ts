@@ -5,6 +5,8 @@ import { BilibiliAPIError, ValidationError } from "../../src/core/errors.js";
 import { callTool, getTools } from "../../src/server.js";
 import { installMockFetch, jsonResponse } from "../helpers/mock-fetch.js";
 
+config.enableBiliTicket = false;
+
 test("server exposes exactly four MCP tools", () => {
   assert.deepEqual(getTools().map((tool) => tool.name).sort(), [
     "bilibili_config",

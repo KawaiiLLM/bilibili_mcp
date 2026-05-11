@@ -2,10 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { clearBuvidCache } from "../../src/core/buvid.js";
 import { clearWbiCache } from "../../src/core/wbi.js";
+import { config } from "../../src/core/config.js";
 import { BilibiliAPIError } from "../../src/core/errors.js";
 import { getVideoSubtitles } from "../../src/modules/subtitle.js";
 import type { Credential } from "../../src/core/types.js";
 import { installMockFetch, jsonResponse } from "../helpers/mock-fetch.js";
+
+config.enableBiliTicket = false;
 
 test("subtitle checks login status when subtitle list is empty", async () => {
   clearBuvidCache();

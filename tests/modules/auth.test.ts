@@ -1,8 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { config } from "../../src/core/config.js";
 import { checkLoginStatus } from "../../src/modules/auth.js";
 import type { Credential } from "../../src/core/types.js";
 import { installMockFetch, jsonResponse } from "../helpers/mock-fetch.js";
+
+config.enableBiliTicket = false;
 
 test("checkLoginStatus verifies login through nav endpoint with credential", async () => {
   const credential: Credential = {

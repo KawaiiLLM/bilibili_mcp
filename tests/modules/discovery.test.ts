@@ -1,7 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { config } from "../../src/core/config.js";
 import { getSearchSuggestions } from "../../src/modules/search.js";
 import { installMockFetch, jsonResponse } from "../helpers/mock-fetch.js";
+
+config.enableBiliTicket = false;
 
 test("search suggestions normalize API payload to string array", async () => {
   const fetchMock = installMockFetch(() => jsonResponse({

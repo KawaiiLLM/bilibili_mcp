@@ -1,7 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { config } from "../../src/core/config.js";
 import { callTool } from "../../src/server.js";
 import { installMockFetch, jsonResponse } from "../helpers/mock-fetch.js";
+
+config.enableBiliTicket = false;
 
 test("discovery related normalizes video cards and applies limit", async () => {
   const fetchMock = installMockFetch((url) => {

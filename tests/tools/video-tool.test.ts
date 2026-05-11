@@ -6,6 +6,8 @@ import { callTool } from "../../src/server.js";
 import { normalizeAiSummaryOutput } from "../../src/tools/video-tool.js";
 import { installMockFetch, jsonResponse } from "../helpers/mock-fetch.js";
 
+config.enableBiliTicket = false;
+
 test("video resolver falls back from failed BV lookup to search result", async () => {
   const previousRateLimit = config.rateLimitMs;
   config.rateLimitMs = 0;
