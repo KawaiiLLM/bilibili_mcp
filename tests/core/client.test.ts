@@ -132,6 +132,54 @@ test("client serializes concurrent request starts through rate-limit queue", asy
   }
 });
 
+test("client clears WBI cache and re-signs once on -352", async () => {
+  config.rateLimitMs = 0;
+  const endpoint: ApiEndpoint = {
+    url: "https://api.bilibili.com/x/web-interface/wbi/protected",
+    method: "GET",
+    wbi: true,
+    auth: false,
+    csrf: false,
+    buvid: false,
+    params_type: "query",
+    response_type: "json",
+    comment: "wbi-protected",
+  };
+  let navCalls = 0;
+  let businessCalls = 0;
+  const fetchMock = installMockFetch((url) => {
+    if (url.pathname === "/x/web-interface/nav") {
+      navCalls += 1;
+      return jsonResponse({
+        code: 0,
+        data: {
+          wbi_img: {
+            img_url: `https://i0.hdslb.com/bfs/wbi/aaaa${navCalls}aaaaaaaaaaaaaaaaaaaaaaaaaaaa.png`,
+            sub_url: `https://i0.hdslb.com/bfs/wbi/bbbb${navCalls}bbbbbbbbbbbbbbbbbbbbbbbbbbbb.png`,
+          },
+        },
+      });
+    }
+    businessCalls += 1;
+    if (businessCalls === 1) {
+      return jsonResponse({ code: -352, message: "风控校验失败" });
+    }
+    return jsonResponse({ code: 0, data: { ok: true } });
+  });
+
+  const { clearWbiCache } = await import("../../src/core/wbi.js");
+  clearWbiCache();
+  try {
+    const result = await request<any>(endpoint, { aid: 1 });
+    assert.deepEqual(result, { ok: true });
+    assert.equal(businessCalls, 2);
+    assert.equal(navCalls, 2);
+  } finally {
+    fetchMock.restore();
+    clearWbiCache();
+  }
+});
+
 test("client maps Bilibili 12002 to CommentsDisabledError", async () => {
   config.rateLimitMs = 0;
   const endpoint: ApiEndpoint = {

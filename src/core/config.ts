@@ -44,7 +44,8 @@ export const DEFAULT_CONFIG: Omit<
   maxCacheSize: 100,
   baseUrl: "https://api.bilibili.com",
   commentBaseUrl: "https://comment.bilibili.com",
-  userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+  userAgent:
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
   referer: "https://www.bilibili.com",
   cookieCloudDomains: ["bilibili.com", ".bilibili.com", "www.bilibili.com"],
   cookieRefreshIntervalMinutes: 10,

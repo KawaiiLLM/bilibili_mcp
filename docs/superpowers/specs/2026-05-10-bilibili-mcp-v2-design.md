@@ -417,6 +417,14 @@ async function signParams(
 
 实现与 biliscope-mcp 完全一致（salt 表、`/x/web-interface/nav` 取 key、MD5），不做改动。
 
+**协议级默认参数（与端点 defaults 的分层）：**
+
+- `web_location`：`withWbiSignature` 在签名前注入 `1550101` 作为兜底，对齐参考项目 `bilibili-api/utils/network.py:1931-1932`。
+  - 优先级：endpoint `defaults.web_location` > 调用方传入 > 全局兜底 `1550101`。例如 `ranking.json` 的 dynamic 接口声明 `web_location=333.934`，签名时不会被全局值覆盖。
+  - 为什么是协议级而非端点级：B 站对未携带 `web_location` 的 WBI 请求会返回 -403/-352；具体 endpoint 该用哪个 location 在参考项目里也没有完整名单（注释原文："具体哪些一些也不清楚"）。把已知值写到 endpoint，把兜底值放在 WBI 模块，跟 `wts` / `w_rid` 同层维护。
+- `dm_img_str` / `dm_cover_img_str`（WBI v2）：每次随机从 `"ABCDEFGHIJK"` 抽 2 字符填充，对齐参考项目 `network.py:1942-1944`，避免空字符串被指纹识别。
+- `-352` 风控签名失败：业务接口返回 `code === -352` 时，client 自动 `clearWbiCache()` 并重签**一次**（`performWithAuthRefresh` 的 `wbiRetried` 标志）。映射成专属 error code `BILIBILI_WBI_FAILED`，不与 `BILIBILI_AUTH_REQUIRED` 混淆。
+
 ### 4.4 Credential (`core/credential.ts`)
 
 从 biliscope-mcp `credentials.ts` 复用，保持 CookieCloud 全链路：

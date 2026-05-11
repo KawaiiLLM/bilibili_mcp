@@ -7,7 +7,7 @@ import { credentialManager, getBiliJct } from "./credential.js";
 import { BilibiliAPIError, CommentsDisabledError, NetworkError } from "./errors.js";
 import { fetchWithTimeout } from "./fetch.js";
 import { withRetry } from "./retry.js";
-import { addWbi2Params, withWbiSignature } from "./wbi.js";
+import { addWbi2Params, clearWbiCache, withWbiSignature } from "./wbi.js";
 import { config } from "./config.js";
 
 type NormalizedParams = Record<string, string | number>;
@@ -28,10 +28,15 @@ async function performWithAuthRefresh<T>(
   params: RequestParams,
   ctx: RequestContext,
   forceRefresh: boolean,
+  wbiRetried = false,
 ): Promise<T> {
   try {
     return await performRequest(endpoint, params, ctx, forceRefresh);
   } catch (error) {
+    if (endpoint.wbi && !wbiRetried && isWbiSignatureFailure(error)) {
+      clearWbiCache();
+      return performWithAuthRefresh(endpoint, params, ctx, forceRefresh, true);
+    }
     if (!endpoint.auth || ctx.credential || forceRefresh || !isAuthFailure(error)) throw error;
     await credentialManager.markAuthFailureAndRefresh();
     return performRequest(endpoint, params, ctx, false);
@@ -232,6 +237,9 @@ function mapBilibiliError(payload: BilibiliJsonEnvelope, url: string): BilibiliA
   if (code === -101 || /未登录|登录|cookie/i.test(message)) {
     return new BilibiliAPIError("B 站登录态已失效。", "BILIBILI_COOKIE_INVALID", undefined, payload, true);
   }
+  if (code === -352) {
+    return new BilibiliAPIError("WBI 风控签名校验失败。", "BILIBILI_WBI_FAILED", undefined, payload, true);
+  }
   if (code === -403 || code === -412) {
     return new BilibiliAPIError("当前请求被 B 站拒绝，通常是登录态或风控问题。", "BILIBILI_AUTH_REQUIRED", undefined, payload, true);
   }
@@ -240,4 +248,8 @@ function mapBilibiliError(payload: BilibiliJsonEnvelope, url: string): BilibiliA
 
 function isAuthFailure(error: unknown): boolean {
   return error instanceof BilibiliAPIError && ["BILIBILI_AUTH_REQUIRED", "BILIBILI_COOKIE_INVALID"].includes(error.code);
+}
+
+function isWbiSignatureFailure(error: unknown): boolean {
+  return error instanceof BilibiliAPIError && error.code === "BILIBILI_WBI_FAILED";
 }

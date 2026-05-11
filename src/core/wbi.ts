@@ -14,12 +14,22 @@ const MIXIN_KEY_ENC_TAB = [
 
 let cachedWbi: { mixKey: string; expireAt: number } | null = null;
 
+const DM_RAND_CHARSET = "ABCDEFGHIJK";
+const DEFAULT_WEB_LOCATION = 1550101;
+
+function pickRandomDmToken(): string {
+  const pool = DM_RAND_CHARSET.split("");
+  const first = pool.splice(Math.floor(Math.random() * pool.length), 1)[0]!;
+  const second = pool[Math.floor(Math.random() * pool.length)]!;
+  return `${first}${second}`;
+}
+
 export function addWbi2Params(params: Record<string, string | number>): Record<string, string | number> {
   return {
     ...params,
     dm_img_list: "[]",
-    dm_img_str: "",
-    dm_cover_img_str: "",
+    dm_img_str: pickRandomDmToken(),
+    dm_cover_img_str: pickRandomDmToken(),
     dm_img_inter: JSON.stringify({ ds: [], wh: [0, 0, 0], of: [0, 0, 0] }),
   };
 }
@@ -29,7 +39,8 @@ export async function withWbiSignature(
   signal?: AbortSignal,
 ): Promise<Record<string, string | number>> {
   const { mixKey } = await getWbiKeys(signal);
-  const signed = { ...params, wts: Math.floor(Date.now() / 1000) };
+  const signed: Record<string, string | number> = { ...params, wts: Math.floor(Date.now() / 1000) };
+  if (signed.web_location === undefined) signed.web_location = DEFAULT_WEB_LOCATION;
   return { ...signed, w_rid: generateWbiRid(signed, mixKey) };
 }
 
