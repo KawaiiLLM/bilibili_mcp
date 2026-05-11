@@ -4,12 +4,13 @@
       "url": "https://api.bilibili.com/x/space/wbi/arc/search",
       "method": "GET",
       "wbi": true,
+      "wbi2": true,
       "auth": false,
       "csrf": false,
       "buvid": false,
       "params_type": "query",
       "response_type": "json",
-      "comment": "UP space submissions list. WBI signed; auth optional. Risks -412 rate limit."
+      "comment": "UP space submissions list. WBI + dm_img anti-spider params required (HTTP 412 without them)."
     },
     "acc_info": {
       "url": "https://api.bilibili.com/x/space/wbi/acc/info",

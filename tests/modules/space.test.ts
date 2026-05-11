@@ -137,6 +137,33 @@ test("getSpaceVideos passes order and keyword to query", async () => {
   }
 });
 
+test("getSpaceVideos sends dm_img anti-spider params to arc/search", async () => {
+  const previousRateLimit = config.rateLimitMs;
+  config.rateLimitMs = 0;
+  let capturedUrl: URL | undefined;
+  const fetchMock = installMockFetch((url) => {
+    const stub = wbiNavStubs(url);
+    if (stub) return stub;
+    if (url.pathname === "/x/space/wbi/arc/search") {
+      capturedUrl = url;
+      return jsonResponse({ code: 0, data: { list: { slist: [], tlist: {}, vlist: [] }, page: { count: 0, pn: 1, ps: 30 } } });
+    }
+    return jsonResponse({ code: -404 });
+  });
+
+  try {
+    await getSpaceVideos({ mid: 1 });
+    assert.ok(capturedUrl, "expected arc/search to be called");
+    assert.equal(capturedUrl!.searchParams.get("dm_img_list"), "[]");
+    assert.ok(capturedUrl!.searchParams.get("dm_img_str"));
+    assert.ok(capturedUrl!.searchParams.get("dm_cover_img_str"));
+    assert.ok(capturedUrl!.searchParams.get("dm_img_inter"));
+  } finally {
+    config.rateLimitMs = previousRateLimit;
+    fetchMock.restore();
+  }
+});
+
 test("getSpaceVideos clamps limit to 50", async () => {
   const previousRateLimit = config.rateLimitMs;
   config.rateLimitMs = 0;
