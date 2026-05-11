@@ -74,7 +74,7 @@ async function performRequest<T>(
     if (buvid) headers.Cookie = appendBuvidCookies(headers.Cookie, buvid);
   }
 
-  if (config.enableBiliTicket) {
+  if (config.enableBiliTicket && endpoint.wbi) {
     const ticket = await getBiliTicket(ctx.signal);
     const cachedInfo = getBiliTicketCached();
     if (ticket && cachedInfo) {

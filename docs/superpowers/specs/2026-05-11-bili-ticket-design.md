@@ -95,57 +95,64 @@ function hmacSha256(key: string, message: string): string {
 async function fetchTicket(signal?: AbortSignal): Promise<...> {
   const ts = Math.floor(Date.now() / 1000);
   const hexsign = hmacSha256(HMAC_SECRET, `ts${ts}`);
-  const payload = await request<{ ticket: string }>(GET_WEB_TICKET_ENDPOINT, {
-    key_id: "ec02",
-    hexsign,
-    "context[ts]": ts,
-    csrf: "",
+  const url = new URL("https://api.bilibili.com/bapis/.../GenWebTicket");
+  url.searchParams.set("key_id", "ec02");
+  url.searchParams.set("hexsign", hexsign);
+  url.searchParams.set("context[ts]", String(ts));
+  url.searchParams.set("csrf", "");
+  const response = await fetchWithTimeout(url, {
+    method: "POST",
+    headers: { ...DEFAULT_HEADERS },
+    signal,
   });
-  return {
-    value: payload.ticket,
-    expireAt: Date.now() + TICKET_TTL_MS,
-  };
+  // ...解析 response.json()，返回 { value, expireAt }
 }
 ```
 
-注意：`fetchTicket` 走 `client.ts request()` 复用通用 fetch 管线（rate limit、retry、UA、Referer）。
-**但**：GenWebTicket endpoint 本身**不**需要 wbi / buvid / ticket，避免递归。
+注意：`fetchTicket` **直接调 `fetchWithTimeout`，不走 `client.request()` 通用管线**。原因：
+1. 通用管线会自动注入 buvid / bili_ticket cookie，而 GenWebTicket 本身不需要，且会形成 ticket → ticket 递归调用
+2. 直接 fetch 牺牲了通用 retry / rate-limit，但 ticket 失败本身不阻塞业务请求（兜底字段），可接受
+3. catalog 中的 endpoint 定义（`data/api/auth.json`）**仅作为文档存在**，不被 client.ts 调用
 
 ### 4.2 `core/client.ts` 集成点
 
 ```typescript
-// 在 buvid 注入之后、wbi 签名之前
-if (config.enableBiliTicket) {
+// 在 buvid 注入之后、wbi 签名之前，仅对 WBI endpoint 注入
+if (config.enableBiliTicket && endpoint.wbi) {
   const ticket = await getBiliTicket(ctx.signal);
   if (ticket) {
-    headers.Cookie = appendBiliTicket(headers.Cookie, ticket);
+    headers.Cookie = appendBiliTicket(headers.Cookie, ticket, cachedInfo.expireAt);
   }
 }
 ```
 
-新增 helper `appendBiliTicket(cookieHeader: string | undefined, ticket: string): string`，行为与 `appendBuvidCookies` 一致。
+**作用域：仅 WBI endpoint**。非 WBI 接口不带 `bili_ticket`，避免冷启动时未触及 WBI 的请求白付 GenWebTicket 延迟。需要"所有请求都带 ticket"时单独再评估。
+
+新增 helper `appendBiliTicket(cookieHeader, ticket, expireAt): string`，输出形如 `bili_ticket=<val>; bili_ticket_expires=<unix>`。
 
 ### 4.3 `data/api/auth.json` endpoint
 
 ```json
 {
-  "get_web_ticket": {
-    "url": "https://api.bilibili.com/bapis/bilibili.api.ticket.v1.Ticket/GenWebTicket",
-    "method": "POST",
-    "wbi": false,
-    "wbi2": false,
-    "auth": false,
-    "csrf": false,
-    "buvid": false,
-    "params_type": "query",
-    "content_type": "form",
-    "response_type": "json",
-    "comment": "获取 bili_ticket（反爬 cookie）"
+  "ticket": {
+    "get_web_ticket": {
+      "url": "https://api.bilibili.com/bapis/bilibili.api.ticket.v1.Ticket/GenWebTicket",
+      "method": "POST",
+      "wbi": false,
+      "auth": false,
+      "csrf": false,
+      "buvid": false,
+      "params_type": "query",
+      "response_type": "json",
+      "comment": "Fetch bili_ticket... Catalog entry is documentation only."
+    }
   }
 }
 ```
 
 参数走 query string（与参考项目 `params=` 行为一致），body 为空。
+
+**注意**：此条目仅作为 catalog 文档存在。`core/ticket.ts:fetchTicket` 直接调用 `fetchWithTimeout`，不通过 `getEndpoint("auth", "ticket", "get_web_ticket")` 加载这个 endpoint。这样做的目的是：(a) 让 endpoint 目录完整，(b) 给 api-loader 测试一个覆盖点，(c) 标记 URL 与其它端点同源管理。
 
 ### 4.4 `core/config.ts`
 

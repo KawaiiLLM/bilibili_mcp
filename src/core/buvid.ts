@@ -10,6 +10,7 @@ interface BuvidBundle {
 
 let cached: BuvidBundle | undefined;
 let inFlight: Promise<BuvidBundle | undefined> | null = null;
+let pendingActivation: Promise<void> | null = null;
 
 export async function getBuvidCookies(signal?: AbortSignal): Promise<string | undefined> {
   if (cached) return cached.cookieHeader;
@@ -17,7 +18,7 @@ export async function getBuvidCookies(signal?: AbortSignal): Promise<string | un
     const pending = await inFlight;
     return pending?.cookieHeader;
   }
-  inFlight = fetchAndActivate(signal).finally(() => {
+  inFlight = fetchBuvid(signal).finally(() => {
     inFlight = null;
   });
   const bundle = await inFlight;
@@ -33,9 +34,14 @@ export function appendBuvidCookies(cookieHeader: string | undefined, buvid: stri
 export function clearBuvidCache(): void {
   cached = undefined;
   inFlight = null;
+  pendingActivation = null;
 }
 
-async function fetchAndActivate(signal?: AbortSignal): Promise<BuvidBundle | undefined> {
+export async function _awaitBuvidActivationForTest(): Promise<void> {
+  if (pendingActivation) await pendingActivation;
+}
+
+async function fetchBuvid(signal?: AbortSignal): Promise<BuvidBundle | undefined> {
   try {
     const response = await fetchWithTimeout(new URL("/x/frontend/finger/spi", BASE_URLS.api), {
       headers: { ...DEFAULT_HEADERS },
@@ -66,7 +72,12 @@ async function fetchAndActivate(signal?: AbortSignal): Promise<BuvidBundle | und
     ].join("; ");
 
     if (config.enableBuvidActivation) {
-      await activateBuvid({ cookieHeader, payloadString, signal });
+      // Fire-and-forget: cookie is already complete; activation is server-side
+      // device registration. Awaiting would block the first business request on
+      // ExClimbWuzhi latency for no client-side benefit.
+      pendingActivation = activateBuvid({ cookieHeader, payloadString, signal }).finally(() => {
+        pendingActivation = null;
+      });
     }
 
     return { cookieHeader };

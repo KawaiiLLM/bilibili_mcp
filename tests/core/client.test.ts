@@ -251,9 +251,11 @@ test("client uses cacheManager when RequestContext.cache is true", async () => {
   }
 });
 
-test("client injects bili_ticket cookie when config.enableBiliTicket is true", async () => {
+test("client injects bili_ticket cookie for WBI endpoints", async () => {
   const { clearTicketCache } = await import("../../src/core/ticket.js");
+  const { clearWbiCache } = await import("../../src/core/wbi.js");
   clearTicketCache();
+  clearWbiCache();
   config.rateLimitMs = 0;
   config.enableBiliTicket = true;
   let businessCookieHeader: string | undefined;
@@ -261,13 +263,24 @@ test("client injects bili_ticket cookie when config.enableBiliTicket is true", a
     if (url.pathname.endsWith("/GenWebTicket")) {
       return jsonResponse({ code: 0, data: { ticket: "ticket-xyz" } });
     }
+    if (url.pathname === "/x/web-interface/nav") {
+      return jsonResponse({
+        code: 0,
+        data: {
+          wbi_img: {
+            img_url: "https://i0.hdslb.com/bfs/wbi/aabbccddeeff00112233445566778899.png",
+            sub_url: "https://i0.hdslb.com/bfs/wbi/99887766554433221100ffeeddccbbaa.png",
+          },
+        },
+      });
+    }
     businessCookieHeader = (init.headers as Record<string, string>).Cookie;
     return jsonResponse({ code: 0, data: { ok: true } });
   });
   const endpoint: ApiEndpoint = {
     url: "https://api.bilibili.com/x/web-interface/wbi/sample",
     method: "GET",
-    wbi: false,
+    wbi: true,
     auth: false,
     csrf: false,
     buvid: false,
@@ -282,35 +295,86 @@ test("client injects bili_ticket cookie when config.enableBiliTicket is true", a
   } finally {
     fetchMock.restore();
     clearTicketCache();
+    clearWbiCache();
   }
 });
 
-test("client skips bili_ticket injection when disabled", async () => {
+test("client does not inject bili_ticket for non-WBI endpoints", async () => {
   const { clearTicketCache } = await import("../../src/core/ticket.js");
   clearTicketCache();
   config.rateLimitMs = 0;
-  config.enableBiliTicket = false;
-  let fetchCount = 0;
-  const fetchMock = installMockFetch((url) => {
-    fetchCount += 1;
+  config.enableBiliTicket = true;
+  let businessCookieHeader: string | undefined;
+  let ticketFetched = false;
+  const fetchMock = installMockFetch((url, init) => {
     if (url.pathname.endsWith("/GenWebTicket")) {
-      throw new Error("should not be called");
+      ticketFetched = true;
+      return jsonResponse({ code: 0, data: { ticket: "ticket-xyz" } });
     }
+    businessCookieHeader = (init.headers as Record<string, string>).Cookie;
     return jsonResponse({ code: 0, data: { ok: true } });
   });
   const endpoint: ApiEndpoint = {
     url: "https://api.bilibili.com/x/web-interface/sample",
     method: "GET",
-    wbi: false, auth: false, csrf: false, buvid: false,
+    wbi: false,
+    auth: false,
+    csrf: false,
+    buvid: false,
+    params_type: "query",
+    response_type: "json",
+    comment: "non-wbi-target",
+  };
+  try {
+    await request<any>(endpoint);
+    assert.equal(ticketFetched, false, "ticket should not be fetched for non-WBI endpoints");
+    assert.doesNotMatch(businessCookieHeader ?? "", /bili_ticket=/);
+  } finally {
+    fetchMock.restore();
+    clearTicketCache();
+  }
+});
+
+test("client skips bili_ticket injection when disabled", async () => {
+  const { clearTicketCache } = await import("../../src/core/ticket.js");
+  const { clearWbiCache } = await import("../../src/core/wbi.js");
+  clearTicketCache();
+  clearWbiCache();
+  config.rateLimitMs = 0;
+  config.enableBiliTicket = false;
+  let ticketFetched = false;
+  const fetchMock = installMockFetch((url) => {
+    if (url.pathname.endsWith("/GenWebTicket")) {
+      ticketFetched = true;
+      throw new Error("should not be called");
+    }
+    if (url.pathname === "/x/web-interface/nav") {
+      return jsonResponse({
+        code: 0,
+        data: {
+          wbi_img: {
+            img_url: "https://i0.hdslb.com/bfs/wbi/aabbccddeeff00112233445566778899.png",
+            sub_url: "https://i0.hdslb.com/bfs/wbi/99887766554433221100ffeeddccbbaa.png",
+          },
+        },
+      });
+    }
+    return jsonResponse({ code: 0, data: { ok: true } });
+  });
+  const endpoint: ApiEndpoint = {
+    url: "https://api.bilibili.com/x/web-interface/wbi/sample",
+    method: "GET",
+    wbi: true, auth: false, csrf: false, buvid: false,
     params_type: "query", response_type: "json",
     comment: "no-ticket-target",
   };
   try {
     await request(endpoint);
-    assert.equal(fetchCount, 1); // only business call, no ticket call
+    assert.equal(ticketFetched, false);
   } finally {
     fetchMock.restore();
     clearTicketCache();
+    clearWbiCache();
     config.enableBiliTicket = true; // restore default for downstream tests
   }
 });

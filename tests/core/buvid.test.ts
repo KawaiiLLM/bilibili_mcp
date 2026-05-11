@@ -1,12 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { config } from "../../src/core/config.js";
-import { clearBuvidCache, getBuvidCookies } from "../../src/core/buvid.js";
+import {
+  _awaitBuvidActivationForTest,
+  clearBuvidCache,
+  getBuvidCookies,
+} from "../../src/core/buvid.js";
 import { installMockFetch, jsonResponse } from "../helpers/mock-fetch.js";
 
 config.enableBiliTicket = false;
 
-test("getBuvidCookies activates after SPI and returns extended cookie bundle", async () => {
+test("getBuvidCookies returns extended cookie and fires activation in background", async () => {
   clearBuvidCache();
   config.enableBuvidActivation = true;
   let spiCalls = 0;
@@ -30,9 +34,42 @@ test("getBuvidCookies activates after SPI and returns extended cookie bundle", a
     assert.match(cookie!, /buvid_fp=[0-9a-f]+/);
     assert.match(cookie!, /_uuid=[1-9A-F0-]+\d{5}infoc/);
     assert.equal(spiCalls, 1);
+    await _awaitBuvidActivationForTest();
     assert.equal(activationCalls, 1);
   } finally {
     fetchMock.restore();
+    await _awaitBuvidActivationForTest();
+    clearBuvidCache();
+  }
+});
+
+test("getBuvidCookies returns immediately even if ExClimbWuzhi is slow", async () => {
+  clearBuvidCache();
+  config.enableBuvidActivation = true;
+  let activationResolved = false;
+  let activationStarted = false;
+  const fetchMock = installMockFetch(async (url) => {
+    if (url.pathname === "/x/frontend/finger/spi") {
+      return jsonResponse({ code: 0, data: { b_3: "B3", b_4: "B4" } });
+    }
+    if (url.pathname === "/x/internal/gaia-gateway/ExClimbWuzhi") {
+      activationStarted = true;
+      await new Promise((r) => setTimeout(r, 50));
+      activationResolved = true;
+      return jsonResponse({ code: 0 });
+    }
+    throw new Error("unexpected url");
+  });
+  try {
+    const cookie = await getBuvidCookies();
+    assert.ok(cookie);
+    assert.equal(activationStarted, true, "activation should have started");
+    assert.equal(activationResolved, false, "cookie should return before activation finishes");
+    await _awaitBuvidActivationForTest();
+    assert.equal(activationResolved, true);
+  } finally {
+    fetchMock.restore();
+    await _awaitBuvidActivationForTest();
     clearBuvidCache();
   }
 });
@@ -54,8 +91,10 @@ test("getBuvidCookies still returns cookie when ExClimbWuzhi fails", async () =>
     assert.ok(cookie);
     assert.match(cookie!, /buvid3=B3/);
     assert.match(cookie!, /buvid_fp=[0-9a-f]+/);
+    await _awaitBuvidActivationForTest();
   } finally {
     fetchMock.restore();
+    await _awaitBuvidActivationForTest();
     clearBuvidCache();
   }
 });
@@ -107,9 +146,11 @@ test("getBuvidCookies caches across calls (no extra SPI or activation)", async (
     const second = await getBuvidCookies();
     assert.equal(first, second);
     assert.equal(spiCalls, 1);
+    await _awaitBuvidActivationForTest();
     assert.equal(activationCalls, 1);
   } finally {
     fetchMock.restore();
+    await _awaitBuvidActivationForTest();
     clearBuvidCache();
   }
 });
@@ -135,9 +176,11 @@ test("getBuvidCookies dedupes concurrent first-time callers", async () => {
     const cookies = await Promise.all([getBuvidCookies(), getBuvidCookies(), getBuvidCookies()]);
     assert.equal(new Set(cookies).size, 1, "all callers should receive the same cookie");
     assert.equal(spiCalls, 1);
+    await _awaitBuvidActivationForTest();
     assert.equal(activationCalls, 1);
   } finally {
     fetchMock.restore();
+    await _awaitBuvidActivationForTest();
     clearBuvidCache();
   }
 });

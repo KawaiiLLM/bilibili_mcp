@@ -150,58 +150,68 @@ export function buildActivationPayload(uuid: string): string;
 
 ```typescript
 interface BuvidBundle {
-  cookieHeader: string;        // 含 buvid3/buvid4/buvid_fp/_uuid
-  raw: { buvid3: string; buvid4: string; buvid_fp: string; uuid: string };
+  cookieHeader: string; // 含 buvid3/buvid4/buvid_fp/_uuid
 }
 
 let cached: BuvidBundle | undefined;
-let activated = false;
+let inFlight: Promise<BuvidBundle | undefined> | null = null;
+let pendingActivation: Promise<void> | null = null;
 
-export async function getBuvidCookies(signal?: AbortSignal): Promise<string | undefined> {
-  if (cached) return cached.cookieHeader;
-  // 走 SPI 拿 b_3, b_4
+async function fetchBuvid(signal): Promise<BuvidBundle | undefined> {
+  // SPI 拿 b_3, b_4
   const uuid = genUuidInfoc();
   const payload = buildActivationPayload(uuid);
-  const buvid_fp = murmur3x64_128(payload, 31);
-  cached = {
-    cookieHeader: `buvid3=${b3}; buvid4=${b4}; buvid_fp=${buvid_fp}; _uuid=${uuid}`,
-    raw: { buvid3: b3, buvid4: b4, buvid_fp, uuid },
-  };
-  if (config.enableBuvidActivation && !activated) {
-    await activateBuvid(cached.raw, payload, signal).catch((err) => logger.warn("buvid activation failed", { err }));
-    activated = true;
+  const buvidFp = murmur3x64_128(payload, 31);
+  const cookieHeader = `buvid3=${b3}; buvid4=${b4}; buvid_fp=${buvidFp}; _uuid=${uuid}`;
+
+  if (config.enableBuvidActivation) {
+    // Fire-and-forget. Cookie 已经完整，activation 仅是服务端设备库登记，
+    // await 会让首个业务请求白等 ExClimbWuzhi 延迟。
+    pendingActivation = activateBuvid(cookieHeader, payload, signal).finally(() => {
+      pendingActivation = null;
+    });
   }
-  return cached.cookieHeader;
+  return { cookieHeader };
+}
+
+// 测试钩子：等待后台激活落地
+export async function _awaitBuvidActivationForTest(): Promise<void> {
+  if (pendingActivation) await pendingActivation;
 }
 ```
 
-注意：**先构造 cookie + 设置 cached，再发激活**。即使激活失败，cookie 也能 work（degraded 模式，与现在等价）。
+**关键不变式**：
+1. **激活是 fire-and-forget**：不 await，cookie 立即返回。激活失败仅 warn 日志
+2. **In-flight singleton**：N 个并发首请求只发 1 次 SPI + 1 次激活（通过 `inFlight` promise 去重）
+3. **激活失败不污染缓存**：仅 SPI 成功的 cookie 写入 `cached`，激活成功与否不改变 cached 内容
+4. **进程级单例**：activation 每进程触发一次（缓存命中后不再激活）
 
 ### 5.3 `data/api/auth.json` 新增 endpoint
 
 ```json
 {
-  "active_buvid": {
-    "url": "https://api.bilibili.com/x/internal/gaia-gateway/ExClimbWuzhi",
-    "method": "POST",
-    "wbi": false,
-    "wbi2": false,
-    "auth": false,
-    "csrf": false,
-    "buvid": false,
-    "params_type": "body",
-    "content_type": "json",
-    "response_type": "json",
-    "comment": "激活 buvid 设备指纹"
+  "buvid": {
+    "spi": {
+      "url": "https://api.bilibili.com/x/frontend/finger/spi",
+      "method": "GET",
+      "wbi": false, "auth": false, "csrf": false, "buvid": false,
+      "params_type": "query", "response_type": "json",
+      "comment": "Fetch buvid3/buvid4 seeds. Documentation only."
+    },
+    "active_buvid": {
+      "url": "https://api.bilibili.com/x/internal/gaia-gateway/ExClimbWuzhi",
+      "method": "POST",
+      "wbi": false, "auth": false, "csrf": false, "buvid": false,
+      "params_type": "body", "content_type": "json", "response_type": "json",
+      "comment": "Register buvid fingerprint. Documentation only."
+    }
   }
 }
 ```
 
-**注意**：`activateBuvid` 不能直接走 `client.request()` —— 因为 client.ts 的 buvid 注入逻辑会递归调 `getBuvidCookies`，死循环。
+**注意**：`activateBuvid` 与 `fetchBuvid` 不能直接走 `client.request()` —— 因为 client.ts 的 buvid 注入逻辑会递归调 `getBuvidCookies`，死循环。
 
-**解决方案**：`activateBuvid` 用 `fetchWithTimeout` 直调，绕开 `client.request` 管线，自己拼 headers + cookies。这样接口定义文件中的 endpoint 仅作为文档存在，不被 client.ts 使用。
-
-或者更优雅：给 endpoint 加一个标志 `skipBuvidInjection: true`，client.ts 看到这个跳过 buvid 注入。**推荐方案 1（直接 fetch）**，避免污染 client.ts 与 ApiEndpoint 类型。
+**解决方案**：两个函数都用 `fetchWithTimeout` 直调，绕开 `client.request` 管线，自己拼 headers + cookies。catalog 中的 endpoint 定义**仅作为文档存在**，让 endpoint 目录完整，并给 api-loader 测试一个覆盖点。
 
 ### 5.4 `core/config.ts`
 
