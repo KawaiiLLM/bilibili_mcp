@@ -30,21 +30,30 @@ async function performWithAuthRefresh<T>(
   params: RequestParams,
   ctx: RequestContext,
   forceRefresh: boolean,
-  wbiRetried = false,
 ): Promise<T> {
-  try {
-    return await performRequest(endpoint, params, ctx, forceRefresh);
-  } catch (error) {
-    if (endpoint.wbi && !wbiRetried && isWbiSignatureFailure(error)) {
-      clearWbiCache();
-      return performWithAuthRefresh(endpoint, params, ctx, forceRefresh, true);
+  const maxAttempts = endpoint.wbi ? Math.max(1, config.wbiRetryTimes) : 1;
+  let lastError: unknown;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      return await performRequest(endpoint, params, ctx, forceRefresh);
+    } catch (error) {
+      lastError = error;
+      // Pre-flight credential errors (synthesized, no originalError) never retry or refresh.
+      if (error instanceof BilibiliAPIError && error.code === "BILIBILI_COOKIE_INVALID" && !error.originalError) {
+        throw error;
+      }
+      if (endpoint.wbi && isWbiRecoverable(error) && attempt < maxAttempts - 1) {
+        clearWbiCache();
+        continue;
+      }
+      if (endpoint.auth && !ctx.credential && !forceRefresh && isAuthFailure(error)) {
+        await credentialManager.markAuthFailureAndRefresh();
+        return performRequest(endpoint, params, ctx, false);
+      }
+      throw error;
     }
-    // Don't retry if error is from pre-flight check (BILIBILI_COOKIE_INVALID without originalError)
-    if (error instanceof BilibiliAPIError && error.code === "BILIBILI_COOKIE_INVALID" && !error.originalError) throw error;
-    if (!endpoint.auth || ctx.credential || forceRefresh || !isAuthFailure(error)) throw error;
-    await credentialManager.markAuthFailureAndRefresh();
-    return performRequest(endpoint, params, ctx, false);
   }
+  throw lastError;
 }
 
 async function performRequest<T>(
@@ -290,6 +299,10 @@ function isAuthFailure(error: unknown): boolean {
   return error instanceof BilibiliAPIError && ["BILIBILI_AUTH_REQUIRED", "BILIBILI_COOKIE_INVALID"].includes(error.code);
 }
 
-function isWbiSignatureFailure(error: unknown): boolean {
-  return error instanceof BilibiliAPIError && error.code === "BILIBILI_WBI_FAILED";
+function isWbiRecoverable(error: unknown): boolean {
+  // BILIBILI_WBI_FAILED ← -352; BILIBILI_AUTH_REQUIRED covers -403/-412.
+  // Called only when endpoint.wbi=true, so -403 here means wbi key likely rotated.
+  return error instanceof BilibiliAPIError && (
+    error.code === "BILIBILI_WBI_FAILED" || error.code === "BILIBILI_AUTH_REQUIRED"
+  );
 }

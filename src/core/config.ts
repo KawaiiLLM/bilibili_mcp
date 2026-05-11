@@ -15,6 +15,7 @@ export interface Config {
   rateLimitMs: number;
   requestTimeoutMs: number;
   wbiCacheExpirationMs: number;
+  wbiRetryTimes: number;
   maxCacheSize: number;
   baseUrl: string;
   commentBaseUrl: string;
@@ -43,6 +44,7 @@ export const DEFAULT_CONFIG: Omit<
   rateLimitMs: 500,
   requestTimeoutMs: 10000,
   wbiCacheExpirationMs: 60 * 60 * 1000,
+  wbiRetryTimes: 3,
   maxCacheSize: 100,
   baseUrl: "https://api.bilibili.com",
   commentBaseUrl: "https://comment.bilibili.com",
@@ -70,6 +72,7 @@ export const config: Config = {
     DEFAULT_CONFIG.requestTimeoutMs,
   ),
   maxCacheSize: parseIntEnv(process.env.BILIBILI_MCP_CACHE_SIZE, DEFAULT_CONFIG.maxCacheSize),
+  wbiRetryTimes: parseIntEnv(process.env.BILIBILI_MCP_WBI_RETRY_TIMES, DEFAULT_CONFIG.wbiRetryTimes),
   userAgent: process.env.BILIBILI_MCP_USER_AGENT || process.env.USER_AGENT || DEFAULT_CONFIG.userAgent,
   enableBiliTicket: process.env.BILIBILI_MCP_ENABLE_BILI_TICKET !== "false",
   enableBuvidActivation: process.env.BILIBILI_MCP_ENABLE_BUVID_ACTIVATION !== "false",

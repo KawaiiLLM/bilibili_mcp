@@ -532,3 +532,125 @@ test("client refuses csrf endpoint without bili_jct and does not fetch", async (
     config.enableBiliTicket = true;
   }
 });
+
+test("client retries WBI endpoint up to wbiRetryTimes on -403", async () => {
+  const { clearWbiCache } = await import("../../src/core/wbi.js");
+  clearWbiCache();
+  config.rateLimitMs = 0;
+  config.enableBiliTicket = false;
+  config.wbiRetryTimes = 3;
+  let navCalls = 0;
+  let businessCalls = 0;
+  const fetchMock = installMockFetch((url) => {
+    if (url.pathname === "/x/web-interface/nav") {
+      navCalls += 1;
+      return jsonResponse({
+        code: 0,
+        data: {
+          wbi_img: {
+            img_url: `https://i0.hdslb.com/bfs/wbi/cccc${navCalls}cccccccccccccccccccccccccccc.png`,
+            sub_url: `https://i0.hdslb.com/bfs/wbi/dddd${navCalls}dddddddddddddddddddddddddddd.png`,
+          },
+        },
+      });
+    }
+    businessCalls += 1;
+    if (businessCalls < 3) return jsonResponse({ code: -403, message: "access denied" });
+    return jsonResponse({ code: 0, data: { ok: true } });
+  });
+  const endpoint: ApiEndpoint = {
+    url: "https://api.bilibili.com/x/web-interface/wbi/retry-403",
+    method: "GET",
+    wbi: true,
+    auth: false,
+    csrf: false,
+    buvid: false,
+    params_type: "query",
+    response_type: "json",
+    comment: "wbi-retry-403",
+  };
+  try {
+    const result = await request<any>(endpoint);
+    assert.deepEqual(result, { ok: true });
+    assert.equal(businessCalls, 3);
+    assert.equal(navCalls, 3);
+  } finally {
+    fetchMock.restore();
+    clearWbiCache();
+    config.wbiRetryTimes = 3;
+  }
+});
+
+test("client throws after exhausting wbiRetryTimes on persistent -352", async () => {
+  const { clearWbiCache } = await import("../../src/core/wbi.js");
+  clearWbiCache();
+  config.rateLimitMs = 0;
+  config.enableBiliTicket = false;
+  config.wbiRetryTimes = 2;
+  const fetchMock = installMockFetch((url) => {
+    if (url.pathname === "/x/web-interface/nav") {
+      return jsonResponse({
+        code: 0,
+        data: {
+          wbi_img: {
+            img_url: "https://i0.hdslb.com/bfs/wbi/eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee.png",
+            sub_url: "https://i0.hdslb.com/bfs/wbi/ffffffffffffffffffffffffffffffff.png",
+          },
+        },
+      });
+    }
+    return jsonResponse({ code: -352, message: "wbi failed" });
+  });
+  const endpoint: ApiEndpoint = {
+    url: "https://api.bilibili.com/x/web-interface/wbi/exhaust",
+    method: "GET",
+    wbi: true,
+    auth: false,
+    csrf: false,
+    buvid: false,
+    params_type: "query",
+    response_type: "json",
+    comment: "wbi-exhaust",
+  };
+  try {
+    await assert.rejects(
+      () => request(endpoint),
+      (error: any) => error?.code === "BILIBILI_WBI_FAILED",
+    );
+  } finally {
+    fetchMock.restore();
+    clearWbiCache();
+    config.wbiRetryTimes = 3;
+  }
+});
+
+test("non-WBI endpoint does not loop on -403", async () => {
+  config.rateLimitMs = 0;
+  config.enableBiliTicket = false;
+  config.wbiRetryTimes = 3;
+  let calls = 0;
+  const fetchMock = installMockFetch(() => {
+    calls += 1;
+    return jsonResponse({ code: -403, message: "access denied" });
+  });
+  const endpoint: ApiEndpoint = {
+    url: "https://api.bilibili.com/x/test/non-wbi-403",
+    method: "GET",
+    wbi: false,
+    auth: false,
+    csrf: false,
+    buvid: false,
+    params_type: "query",
+    response_type: "json",
+    comment: "non-wbi-403",
+  };
+  try {
+    await assert.rejects(
+      () => request(endpoint),
+      (error: any) => error?.code === "BILIBILI_AUTH_REQUIRED",
+    );
+    assert.equal(calls, 1);
+  } finally {
+    fetchMock.restore();
+  }
+});
