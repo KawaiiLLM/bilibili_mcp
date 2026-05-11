@@ -121,7 +121,7 @@ test("getBiliTicket failure does not poison cache", async () => {
   }
 });
 
-test("getBiliTicket re-fetches after TTL expires", async (t) => {
+test("getBiliTicket re-fetches after TTL expires", async () => {
   clearTicketCache();
   let fetchCount = 0;
   const fetchMock = installMockFetch(() => {
