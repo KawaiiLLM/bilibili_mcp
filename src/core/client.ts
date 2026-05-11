@@ -39,6 +39,8 @@ async function performWithAuthRefresh<T>(
       clearWbiCache();
       return performWithAuthRefresh(endpoint, params, ctx, forceRefresh, true);
     }
+    // Don't retry if error is from pre-flight check (BILIBILI_COOKIE_INVALID without originalError)
+    if (error instanceof BilibiliAPIError && error.code === "BILIBILI_COOKIE_INVALID" && !error.originalError) throw error;
     if (!endpoint.auth || ctx.credential || forceRefresh || !isAuthFailure(error)) throw error;
     await credentialManager.markAuthFailureAndRefresh();
     return performRequest(endpoint, params, ctx, false);
@@ -62,6 +64,18 @@ async function performRequest<T>(
   if (endpoint.referer) headers.Referer = endpoint.referer;
 
   const credential = await resolveCredential(endpoint, ctx, forceRefresh);
+  if (endpoint.auth && !credential?.cookieHeader) {
+    throw new BilibiliAPIError(
+      "该接口需要登录态，请先通过 bilibili_config 配置 CookieCloud。",
+      "BILIBILI_COOKIE_INVALID",
+    );
+  }
+  if (endpoint.csrf && !getBiliJct(credential)) {
+    throw new BilibiliAPIError(
+      "缺少 bili_jct Cookie，无法提交需要 CSRF 的请求。",
+      "BILIBILI_CSRF_MISSING",
+    );
+  }
   if (credential) headers.Cookie = credential.cookieHeader;
 
   const cacheKey = buildCacheKey(endpoint, url, requestParams, credential, ctx);
@@ -208,7 +222,15 @@ async function resolveCredential(
   forceRefresh: boolean,
 ): Promise<Credential | undefined> {
   if (!endpoint.auth && !endpoint.csrf) return ctx.credential;
-  return ctx.credential ?? credentialManager.refreshCredentials(forceRefresh);
+  if (ctx.credential) return ctx.credential;
+  try {
+    return await credentialManager.refreshCredentials(forceRefresh);
+  } catch (err) {
+    if (err instanceof BilibiliAPIError && err.code === "COOKIECLOUD_CONFIG_INVALID") {
+      return undefined;
+    }
+    throw err;
+  }
 }
 
 async function throttledFetch(url: URL, init: RequestInit): Promise<Response> {

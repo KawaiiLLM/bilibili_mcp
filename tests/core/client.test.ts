@@ -469,3 +469,66 @@ test("client adds csrf_token alongside csrf in JSON POST body", async () => {
     config.enableBiliTicket = true;
   }
 });
+
+test("client refuses auth endpoint without credential and does not fetch", async () => {
+  config.rateLimitMs = 0;
+  config.enableBiliTicket = false;
+  const endpoint: ApiEndpoint = {
+    url: "https://api.bilibili.com/x/test/auth-required",
+    method: "GET",
+    wbi: false,
+    auth: true,
+    csrf: false,
+    buvid: false,
+    params_type: "query",
+    response_type: "json",
+    comment: "auth-required",
+  };
+  const fetchMock = installMockFetch(() => {
+    throw new Error("fetch should not have been called");
+  });
+  try {
+    await assert.rejects(
+      () => request(endpoint, {}, { credential: undefined }),
+      (error: any) => error?.code === "BILIBILI_COOKIE_INVALID",
+    );
+    assert.equal(fetchMock.calls.length, 0);
+  } finally {
+    fetchMock.restore();
+    config.enableBiliTicket = true;
+  }
+});
+
+test("client refuses csrf endpoint without bili_jct and does not fetch", async () => {
+  config.rateLimitMs = 0;
+  config.enableBiliTicket = false;
+  const endpoint: ApiEndpoint = {
+    url: "https://api.bilibili.com/x/test/csrf-required",
+    method: "POST",
+    wbi: false,
+    auth: true,
+    csrf: true,
+    buvid: false,
+    params_type: "body",
+    content_type: "form",
+    response_type: "json",
+    comment: "csrf-required",
+  };
+  const credentialNoJct: Credential = {
+    cookieHeader: "SESSDATA=session-only; DedeUserID=42",
+    cookies: [],
+  };
+  const fetchMock = installMockFetch(() => {
+    throw new Error("fetch should not have been called");
+  });
+  try {
+    await assert.rejects(
+      () => request(endpoint, { rid: 1 }, { credential: credentialNoJct }),
+      (error: any) => error?.code === "BILIBILI_CSRF_MISSING",
+    );
+    assert.equal(fetchMock.calls.length, 0);
+  } finally {
+    fetchMock.restore();
+    config.enableBiliTicket = true;
+  }
+});
