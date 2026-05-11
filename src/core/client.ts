@@ -10,6 +10,7 @@ import { withRetry } from "./retry.js";
 import { addWbi2Params, clearWbiCache, withWbiSignature } from "./wbi.js";
 import { getBiliTicket, getBiliTicketCached } from "./ticket.js";
 import { config } from "./config.js";
+import { appendCookieFragment } from "./cookies.js";
 
 type NormalizedParams = Record<string, string | number>;
 
@@ -257,7 +258,7 @@ function mapBilibiliError(payload: BilibiliJsonEnvelope, url: string): BilibiliA
 
 function appendBiliTicket(cookieHeader: string | undefined, ticket: string, expireAt: number): string {
   const ticketCookie = `bili_ticket=${ticket}; bili_ticket_expires=${Math.floor(expireAt / 1000)}`;
-  return [cookieHeader, ticketCookie].filter(Boolean).join("; ");
+  return appendCookieFragment(cookieHeader, ticketCookie);
 }
 
 function isAuthFailure(error: unknown): boolean {

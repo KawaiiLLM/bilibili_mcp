@@ -3,6 +3,7 @@ import { config } from "./config.js";
 import { fetchWithTimeout } from "./fetch.js";
 import { buildActivationPayload, genUuidInfoc, murmur3x64_128 } from "./fingerprint.js";
 import { logger } from "./logger.js";
+import { appendCookieFragment } from "./cookies.js";
 
 interface BuvidBundle {
   cookieHeader: string;
@@ -28,7 +29,7 @@ export async function getBuvidCookies(signal?: AbortSignal): Promise<string | un
 }
 
 export function appendBuvidCookies(cookieHeader: string | undefined, buvid: string): string {
-  return [cookieHeader, buvid].filter(Boolean).join("; ");
+  return appendCookieFragment(cookieHeader, buvid);
 }
 
 export function clearBuvidCache(): void {
