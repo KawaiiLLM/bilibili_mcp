@@ -44,3 +44,28 @@ for (const { input, expected } of VECTORS) {
     assert.equal(murmur3x64_128(input, 31), expected);
   });
 }
+
+import { buildActivationPayload } from "../../src/core/fingerprint.js";
+
+test("buildActivationPayload nests inner JSON under 'payload' key", () => {
+  const uuid = "TEST-UUID-VALUE";
+  const outer = buildActivationPayload(uuid);
+  const parsed = JSON.parse(outer) as { payload: string };
+  assert.equal(typeof parsed.payload, "string");
+  const inner = JSON.parse(parsed.payload) as Record<string, unknown>;
+  assert.equal(inner.df35, uuid);
+  assert.equal(typeof inner["5062"], "number");
+  // 5062 is a ms timestamp; sanity check it's within a reasonable window of now
+  assert.ok(Math.abs(Date.now() - (inner["5062"] as number)) < 5000);
+  // Spot check a few hardcoded fields from reference network.py:1703-1869
+  assert.equal(inner["3064"], 1);
+  assert.equal(inner["6e7c"], "839x959");
+  assert.equal(inner["adca"], "MacIntel");
+});
+
+test("buildActivationPayload uses compact JSON (no whitespace)", () => {
+  const outer = buildActivationPayload("u");
+  // Reference uses Python json.dumps(..., separators=(",", ":"))
+  assert.ok(!outer.includes(", "), "outer JSON should have no ', ' (whitespace after commas)");
+  assert.ok(!outer.includes(": "), "outer JSON should have no ': ' (whitespace after colons)");
+});
