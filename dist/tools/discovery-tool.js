@@ -1,16 +1,28 @@
 import { ValidationError } from "../core/errors.js";
 import { getSearchSuggestions, searchByType, searchVideos } from "../modules/search.js";
-import { getHotVideos, getMustWatch, getRanking, getWeeklySeries } from "../modules/ranking.js";
+import { getHotVideos, getHomeRecommend, getMustWatch, getRanking, getWeeklySeries } from "../modules/ranking.js";
+import { getFollowingVideos } from "../modules/dynamic.js";
 import { getRelatedVideos } from "../modules/recommend.js";
 import { assertAllowedArgs, optionalNumber, optionalString, positiveInteger, requireString } from "./common.js";
 import { normalizeVideoList } from "./normalize.js";
 import { resolveVideoContext } from "./video-tool.js";
 const TOOL_NAME = "bilibili_discovery";
-const DISCOVERY_ACTIONS = ["search", "search_type", "suggest", "hot", "ranking", "weekly", "must_watch", "related"];
+const DISCOVERY_ACTIONS = [
+    "search",
+    "search_type",
+    "suggest",
+    "hot",
+    "ranking",
+    "weekly",
+    "must_watch",
+    "related",
+    "home",
+    "following",
+];
 export const discoveryToolRouter = {
     definition: {
         name: TOOL_NAME,
-        description: "B 站发现工具。支持搜索、建议、热门、排行榜、每周必看、入站必刷和相关推荐。",
+        description: "B 站发现工具。支持搜索、建议、热门、排行榜、每周必看、入站必刷、相关推荐、首页推荐流、关注 UP 视频更新。",
         inputSchema: {
             type: "object",
             properties: {
@@ -22,16 +34,18 @@ export const discoveryToolRouter = {
                 rid: { type: "number", description: "排行榜分区 id" },
                 type: { type: "string", description: "排行榜类型，默认 all" },
                 input: { type: "string", description: "related 使用的视频输入" },
+                cursor: { type: "string", description: "翻页游标，仅 following 使用" },
             },
             required: ["action"],
             additionalProperties: false,
         },
     },
     async call(args) {
-        assertAllowedArgs(TOOL_NAME, args, ["action", "keyword", "search_type", "page", "limit", "rid", "type", "input"]);
+        assertAllowedArgs(TOOL_NAME, args, ["action", "keyword", "search_type", "page", "limit", "rid", "type", "input", "cursor"]);
         const action = requireDiscoveryAction(args);
         const page = positiveInteger(optionalNumber(TOOL_NAME, args, "page"), 1, "page", TOOL_NAME);
-        const limit = positiveInteger(optionalNumber(TOOL_NAME, args, "limit"), action === "hot" ? 20 : 10, "limit", TOOL_NAME);
+        const defaultLimit = action === "hot" || action === "home" ? 20 : 10;
+        const limit = positiveInteger(optionalNumber(TOOL_NAME, args, "limit"), defaultLimit, "limit", TOOL_NAME);
         switch (action) {
             case "search": {
                 const payload = await searchVideos({
@@ -67,6 +81,10 @@ export const discoveryToolRouter = {
                     ...normalizeVideoList(payload, "related", { limit }),
                 };
             }
+            case "home":
+                return getHomeRecommend({ limit });
+            case "following":
+                return getFollowingVideos({ limit, cursor: optionalString(args.cursor) });
         }
     },
 };

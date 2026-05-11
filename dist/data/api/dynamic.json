@@ -1,0 +1,20 @@
+{
+  "feed": {
+    "all": {
+      "url": "https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/all",
+      "method": "GET",
+      "wbi": false,
+      "auth": true,
+      "csrf": false,
+      "buvid": false,
+      "params_type": "query",
+      "response_type": "json",
+      "defaults": {
+        "platform": "web",
+        "features": "itemOpusStyle,listOnlyfans",
+        "timezone_offset": "-480"
+      },
+      "comment": "Follow feed (dynamics). Requires SESSDATA. type=video filters to UGC/PGC videos."
+    }
+  }
+}
