@@ -20,6 +20,8 @@ export const DEFAULT_HEADERS = {
 export const FORM_CONTENT_TYPE = "application/x-www-form-urlencoded;charset=UTF-8";
 export const JSON_CONTENT_TYPE = "application/json;charset=UTF-8";
 
+export const OPUS_GOBACK_COOKIE = "opus-goback=1";
+
 export const DEFAULT_RETRY_OPTIONS = {
   maxRetries: 1,
   baseDelay: 250,

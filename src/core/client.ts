@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import type { ApiEndpoint, BilibiliJsonEnvelope, Credential, RequestContext, RequestParams } from "./types.js";
 import { appendBuvidCookies, getBuvidCookies } from "./buvid.js";
 import { cacheManager } from "./cache.js";
-import { BASE_URLS, DEFAULT_HEADERS, DEFAULT_RETRY_OPTIONS, FORM_CONTENT_TYPE, JSON_CONTENT_TYPE, isBaseUrlName } from "./constants.js";
+import { BASE_URLS, DEFAULT_HEADERS, DEFAULT_RETRY_OPTIONS, FORM_CONTENT_TYPE, JSON_CONTENT_TYPE, OPUS_GOBACK_COOKIE, isBaseUrlName } from "./constants.js";
 import { credentialManager, getBiliJct } from "./credential.js";
 import { BilibiliAPIError, CommentsDisabledError, NetworkError } from "./errors.js";
 import { fetchWithTimeout } from "./fetch.js";
@@ -74,6 +74,8 @@ async function performRequest<T>(
     const buvid = await getBuvidCookies(ctx.signal);
     if (buvid) headers.Cookie = appendBuvidCookies(headers.Cookie, buvid);
   }
+
+  headers.Cookie = appendCookieFragment(headers.Cookie, OPUS_GOBACK_COOKIE);
 
   if (config.enableBiliTicket && endpoint.wbi) {
     const ticket = await getBiliTicket(ctx.signal);

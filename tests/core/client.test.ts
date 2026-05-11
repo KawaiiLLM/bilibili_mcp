@@ -61,7 +61,9 @@ test("client posts form body with defaults and csrf from credential", async () =
   const fetchMock = installMockFetch((_url, init) => {
     assert.equal(init.method, "POST");
     assert.equal((init.headers as Record<string, string>)["Content-Type"], "application/x-www-form-urlencoded;charset=UTF-8");
-    assert.equal((init.headers as Record<string, string>).Cookie, credential.cookieHeader);
+    const cookieHeader = (init.headers as Record<string, string>).Cookie;
+    assert.match(cookieHeader ?? "", new RegExp(credential.cookieHeader.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    assert.match(cookieHeader ?? "", /opus-goback=1/);
     const body = init.body as URLSearchParams;
     assert.equal(body.get("type"), "2");
     assert.equal(body.get("rid"), "100");
@@ -376,5 +378,62 @@ test("client skips bili_ticket injection when disabled", async () => {
     clearTicketCache();
     clearWbiCache();
     config.enableBiliTicket = true; // restore default for downstream tests
+  }
+});
+
+test("client injects opus-goback=1 cookie on every request", async () => {
+  config.rateLimitMs = 0;
+  config.enableBiliTicket = false;
+  const endpoint: ApiEndpoint = {
+    url: "https://api.bilibili.com/x/web-interface/anon",
+    method: "GET",
+    wbi: false,
+    auth: false,
+    csrf: false,
+    buvid: false,
+    params_type: "query",
+    response_type: "json",
+    comment: "anonymous-read",
+  };
+  let capturedCookie: string | undefined;
+  const fetchMock = installMockFetch((_url, init) => {
+    capturedCookie = (init.headers as Record<string, string>).Cookie;
+    return jsonResponse({ code: 0, data: { ok: true } });
+  });
+  try {
+    await request<any>(endpoint);
+    assert.match(capturedCookie ?? "", /opus-goback=1/);
+  } finally {
+    fetchMock.restore();
+    config.enableBiliTicket = true;
+  }
+});
+
+test("client injects opus-goback alongside credential cookies", async () => {
+  config.rateLimitMs = 0;
+  config.enableBiliTicket = false;
+  const endpoint: ApiEndpoint = {
+    url: "https://api.bilibili.com/x/web-interface/credentialed",
+    method: "GET",
+    wbi: false,
+    auth: true,
+    csrf: false,
+    buvid: false,
+    params_type: "query",
+    response_type: "json",
+    comment: "auth-read",
+  };
+  let capturedCookie: string | undefined;
+  const fetchMock = installMockFetch((_url, init) => {
+    capturedCookie = (init.headers as Record<string, string>).Cookie;
+    return jsonResponse({ code: 0, data: { ok: true } });
+  });
+  try {
+    await request<any>(endpoint, {}, { credential });
+    assert.match(capturedCookie ?? "", /SESSDATA=session/);
+    assert.match(capturedCookie ?? "", /opus-goback=1/);
+  } finally {
+    fetchMock.restore();
+    config.enableBiliTicket = true;
   }
 });

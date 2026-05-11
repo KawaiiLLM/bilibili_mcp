@@ -155,7 +155,9 @@ test("module calls accept RequestContext credentials", async () => {
   const { getVideoInfo } = await import("../../src/modules/video.js");
   const credential = { cookieHeader: "SESSDATA=session", cookies: [] };
   const fetchMock = installMockFetch((_url, init) => {
-    assert.equal((init.headers as Record<string, string>).Cookie, credential.cookieHeader);
+    const cookieHeader = (init.headers as Record<string, string>).Cookie;
+    assert.match(cookieHeader ?? "", new RegExp(credential.cookieHeader.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    assert.match(cookieHeader ?? "", /opus-goback=1/);
     return jsonResponse({ code: 0, data: { bvid: "BV1abcdefghi", aid: 1, cid: 11 } });
   });
 
