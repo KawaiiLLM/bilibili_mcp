@@ -29,14 +29,21 @@ export function getBiliTicketCached(): Readonly<CachedTicket> | null {
   return cached;
 }
 
-export async function getBiliTicket(signal?: AbortSignal): Promise<string | undefined> {
+export interface GetBiliTicketOptions {
+  signal?: AbortSignal;
+  cookieHeader?: string;
+}
+
+export async function getBiliTicket(
+  opts?: GetBiliTicketOptions,
+): Promise<string | undefined> {
   const now = Date.now();
   if (cached && now < cached.expireAt) return cached.value;
   if (inFlight) {
     const pending = await inFlight;
     return pending?.value;
   }
-  inFlight = fetchTicket(signal).finally(() => {
+  inFlight = fetchTicket(opts).finally(() => {
     inFlight = null;
   });
   const fetched = await inFlight;
@@ -45,7 +52,7 @@ export async function getBiliTicket(signal?: AbortSignal): Promise<string | unde
   return fetched.value;
 }
 
-async function fetchTicket(signal?: AbortSignal): Promise<CachedTicket | undefined> {
+async function fetchTicket(opts?: GetBiliTicketOptions): Promise<CachedTicket | undefined> {
   const ts = Math.floor(Date.now() / 1000);
   const hexsign = hmacSha256(HMAC_SECRET, `ts${ts}`);
   const url = new URL(TICKET_URL);
@@ -53,11 +60,13 @@ async function fetchTicket(signal?: AbortSignal): Promise<CachedTicket | undefin
   url.searchParams.set("hexsign", hexsign);
   url.searchParams.set("context[ts]", String(ts));
   url.searchParams.set("csrf", "");
+  const headers: Record<string, string> = { ...DEFAULT_HEADERS };
+  if (opts?.cookieHeader) headers.Cookie = opts.cookieHeader;
   try {
     const response = await fetchWithTimeout(url, {
       method: "POST",
-      headers: { ...DEFAULT_HEADERS },
-      signal,
+      headers,
+      signal: opts?.signal,
     });
     if (!response.ok) {
       logger.warn("bili_ticket fetch failed", { status: response.status });

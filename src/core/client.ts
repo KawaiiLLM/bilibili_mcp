@@ -101,7 +101,7 @@ async function performRequest<T>(
   headers.Cookie = appendCookieFragment(headers.Cookie, OPUS_GOBACK_COOKIE);
 
   if (config.enableBiliTicket && endpoint.wbi) {
-    const ticket = await getBiliTicket(ctx.signal);
+    const ticket = await getBiliTicket({ signal: ctx.signal, cookieHeader: headers.Cookie });
     const cachedInfo = getBiliTicketCached();
     if (ticket && cachedInfo) {
       headers.Cookie = appendBiliTicket(headers.Cookie, ticket, cachedInfo.expireAt);

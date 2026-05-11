@@ -145,3 +145,39 @@ test("getBiliTicket re-fetches after TTL expires", async () => {
     clearTicketCache();
   }
 });
+
+test("getBiliTicket attaches provided cookieHeader to GenWebTicket request", async () => {
+  clearTicketCache();
+  let captured: { url: URL; init: RequestInit } | undefined;
+  const fetchMock = installMockFetch((url, init) => {
+    captured = { url, init };
+    return jsonResponse({ code: 0, data: { ticket: "ticket-with-cookies" } });
+  });
+  try {
+    const cookieHeader = "SESSDATA=abc; buvid3=BUVID-XYZ; opus-goback=1";
+    const ticket = await getBiliTicket({ cookieHeader });
+    assert.equal(ticket, "ticket-with-cookies");
+    const sentCookie = (captured!.init.headers as Record<string, string>).Cookie;
+    assert.equal(sentCookie, cookieHeader);
+  } finally {
+    fetchMock.restore();
+    clearTicketCache();
+  }
+});
+
+test("getBiliTicket omits Cookie header when cookieHeader is not provided", async () => {
+  clearTicketCache();
+  let captured: { init: RequestInit } | undefined;
+  const fetchMock = installMockFetch((_url, init) => {
+    captured = { init };
+    return jsonResponse({ code: 0, data: { ticket: "anon-ticket" } });
+  });
+  try {
+    await getBiliTicket();
+    const headers = captured!.init.headers as Record<string, string>;
+    assert.equal(headers.Cookie, undefined);
+  } finally {
+    fetchMock.restore();
+    clearTicketCache();
+  }
+});
