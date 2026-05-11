@@ -60,12 +60,16 @@ test("buildActivationPayload nests inner JSON under 'payload' key", () => {
   // Spot check a few hardcoded fields from reference network.py:1703-1869
   assert.equal(inner["3064"], 1);
   assert.equal(inner["6e7c"], "839x959");
-  assert.equal(inner["adca"], "MacIntel");
+  const nested = inner["3c43"] as Record<string, unknown>;
+  assert.equal(nested.adca, "MacIntel");
+  assert.equal(nested.b8ce, "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3 Safari/605.1.15");
 });
 
-test("buildActivationPayload uses compact JSON (no whitespace)", () => {
+test("buildActivationPayload re-serializes without added whitespace", () => {
+  // JSON.stringify default already produces compact JSON; verify round-trip is byte-stable.
   const outer = buildActivationPayload("u");
-  // Reference uses Python json.dumps(..., separators=(",", ":"))
-  assert.ok(!outer.includes(", "), "outer JSON should have no ', ' (whitespace after commas)");
-  assert.ok(!outer.includes(": "), "outer JSON should have no ': ' (whitespace after colons)");
+  const parsed = JSON.parse(outer) as { payload: string };
+  assert.equal(JSON.stringify(parsed), outer);
+  const inner = JSON.parse(parsed.payload);
+  assert.equal(JSON.stringify(inner), parsed.payload);
 });
