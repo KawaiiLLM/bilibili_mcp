@@ -41,8 +41,15 @@ async function fetchAndActivate(signal?: AbortSignal): Promise<BuvidBundle | und
       headers: { ...DEFAULT_HEADERS },
       signal,
     });
-    if (!response.ok) return undefined;
-    const payload = (await response.json()) as { data?: { b_3?: string; b_4?: string } };
+    if (!response.ok) {
+      logger.warn("buvid SPI HTTP failed", { status: response.status });
+      return undefined;
+    }
+    const payload = (await response.json()) as { code?: number; data?: { b_3?: string; b_4?: string } };
+    if (payload?.code !== 0) {
+      logger.warn("buvid SPI returned non-zero code", { code: payload?.code });
+      return undefined;
+    }
     const buvid3 = payload?.data?.b_3;
     const buvid4 = payload?.data?.b_4;
     if (typeof buvid3 !== "string" || typeof buvid4 !== "string") return undefined;

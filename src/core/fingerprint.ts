@@ -1,3 +1,5 @@
+// Mirrors bilibili-api/utils/network.py:1612-1617. The reference also defines this but
+// does not consume it in the activation flow. Reserved for future fingerprint extensions.
 export function genBLsid(): string {
   let prefix = "";
   for (let i = 0; i < 8; i += 1) {
