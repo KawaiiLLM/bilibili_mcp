@@ -2,6 +2,18 @@ import { getEndpoint } from "../core/api-loader.js";
 import { request } from "../core/client.js";
 import { normalizeAbsoluteUrl } from "../tools/normalize.js";
 import type { RequestContext } from "../core/types.js";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { credentialManager } from "../core/credential.js";
+import type { Credential } from "../core/types.js";
+import { config } from "../core/config.js";
+import { BilibiliAPIError } from "../core/errors.js";
+import { describeQuality } from "./quality.js";
+import { getPlayUrl } from "./video.js";
+
+const execFileAsync = promisify(execFile);
 
 export interface SnapshotMeta {
   image?: string[];
@@ -126,4 +138,109 @@ export function selectVideoStream(payload: any, targetQn: number): SelectedStrea
   }
 
   throw new Error("NO_VIDEO_STREAM");
+}
+
+export interface ExtractFrameInput {
+  bvid: string;
+  cid: number;
+  timestamp: number;
+  quality?: number;
+  page?: number;
+}
+
+export interface ExtractFrameResult {
+  file: string;
+  timestamp: number;
+  width?: number;
+  height?: number;
+  quality: number;
+  quality_desc: string | null;
+}
+
+export interface FrameRunnerArgs {
+  url: string;
+  timestamp: number;
+  outpath: string;
+  headers?: Record<string, string>;
+}
+
+export type FrameRunner = (args: FrameRunnerArgs) => Promise<void>;
+
+export interface ExtractFrameOptions {
+  runner?: FrameRunner;
+}
+
+async function tryGetCredential(): Promise<Credential | undefined> {
+  try {
+    return await credentialManager.refreshCredentials(false);
+  } catch (err) {
+    if (err instanceof BilibiliAPIError && err.code === "COOKIECLOUD_CONFIG_INVALID") return undefined;
+    if (err instanceof Error && /CookieCloud/.test(err.message)) return undefined;
+    throw err;
+  }
+}
+
+export async function extractFrame(input: ExtractFrameInput, options: ExtractFrameOptions = {}): Promise<ExtractFrameResult> {
+  const credential = await tryGetCredential();
+  const hasAuth = Boolean(credential?.cookieHeader && /SESSDATA=/.test(credential.cookieHeader));
+  const targetQn = input.quality ?? 80;
+
+  const playurl = await getPlayUrl({
+    bvid: input.bvid,
+    cid: input.cid,
+    qn: targetQn,
+    tryLook: hasAuth ? undefined : true,
+    platform: hasAuth ? undefined : "html5",
+    fnval: 16,
+    fourk: 1,
+  }, hasAuth ? { credential } : undefined);
+
+  const stream = selectVideoStream(playurl, targetQn);
+  if (!stream.url) {
+    throw new Error("SNAPSHOT_EXTRACT_FAILED: empty stream URL");
+  }
+
+  const page = Number.isFinite(input.page) && input.page! > 0 ? input.page : 1;
+  const outpath = join(tmpdir(), `bilibili-snapshot-${input.bvid}-p${page}-${Math.floor(input.timestamp)}s.jpg`);
+
+  const headers: Record<string, string> | undefined = hasAuth
+    ? { Referer: "https://www.bilibili.com", "User-Agent": config.userAgent }
+    : undefined;
+
+  const runner = options.runner ?? defaultFrameRunner;
+  await runner({ url: stream.url, timestamp: input.timestamp, outpath, headers });
+
+  return {
+    file: outpath,
+    timestamp: input.timestamp,
+    width: stream.width,
+    height: stream.height,
+    quality: stream.quality,
+    quality_desc: describeQuality(stream.quality),
+  };
+}
+
+async function defaultFrameRunner(args: FrameRunnerArgs): Promise<void> {
+  const ffmpegPath = await loadFfmpegPath();
+  const cmd: string[] = ["-y", "-ss", String(args.timestamp), "-i", args.url, "-frames:v", "1", "-q:v", "2", args.outpath];
+  if (args.headers && Object.keys(args.headers).length > 0) {
+    const header = Object.entries(args.headers).map(([k, v]) => `${k}: ${v}`).join("\r\n") + "\r\n";
+    cmd.splice(0, 0, "-headers", header);
+  }
+  try {
+    await execFileAsync(ffmpegPath, cmd, { timeout: 30_000 });
+  } catch (error) {
+    const raw = error instanceof Error ? error.message : String(error);
+    const safe = raw.replaceAll(args.url, "<stream-url>");
+    throw new Error(`SNAPSHOT_EXTRACT_FAILED: ${safe}`);
+  }
+}
+
+async function loadFfmpegPath(): Promise<string> {
+  const mod: any = await import("ffmpeg-static");
+  const path = mod?.default ?? mod;
+  if (typeof path !== "string" || path.length === 0) {
+    throw new Error("SNAPSHOT_EXTRACT_FAILED: ffmpeg-static binary not available");
+  }
+  return path;
 }
