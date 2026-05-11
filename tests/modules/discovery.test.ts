@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { config } from "../../src/core/config.js";
 import { getSearchSuggestions } from "../../src/modules/search.js";
 import { getHomeRecommend } from "../../src/modules/ranking.js";
+import { getFollowingVideos } from "../../src/modules/dynamic.js";
+import type { Credential } from "../../src/core/types.js";
 import { installMockFetch, jsonResponse } from "../helpers/mock-fetch.js";
 
 config.enableBiliTicket = false;
@@ -185,9 +187,6 @@ test("getHomeRecommend caps limit at 30 in upstream request", async () => {
   }
 });
 
-import { getFollowingVideos } from "../../src/modules/dynamic.js";
-import type { Credential } from "../../src/core/types.js";
-
 test("getFollowingVideos throws when SESSDATA missing", async () => {
   const previousRateLimit = config.rateLimitMs;
   config.rateLimitMs = 0;
@@ -341,6 +340,64 @@ test("getFollowingVideos trims mapped items to limit", async () => {
     assert.equal(result.items.length, 2);
     assert.equal(result.items[0].bvid, "BV1");
     assert.equal(result.items[1].bvid, "BV2");
+  } finally {
+    config.rateLimitMs = previousRateLimit;
+    fetchMock.restore();
+  }
+});
+
+test("getFollowingVideos keeps DYNAMIC_TYPE_UGC_SEASON items", async () => {
+  const previousRateLimit = config.rateLimitMs;
+  config.rateLimitMs = 0;
+  const credential: Credential = { cookieHeader: "SESSDATA=session; bili_jct=csrf", cookies: [] };
+  const fetchMock = installMockFetch((url) => {
+    if (url.pathname === "/x/polymer/web-dynamic/v1/feed/all") {
+      return jsonResponse({
+        code: 0,
+        data: {
+          has_more: false,
+          offset: "",
+          update_baseline: "",
+          items: [
+            {
+              id_str: "2000",
+              type: "DYNAMIC_TYPE_UGC_SEASON",
+              modules: {
+                module_author: {
+                  mid: 7,
+                  name: "season-up",
+                  face: "//i0.hdslb.com/face-s.jpg",
+                  pub_ts: 1700000000,
+                  pub_time: "1 小时前",
+                },
+                module_dynamic: {
+                  major: {
+                    type: "MAJOR_TYPE_ARCHIVE",
+                    archive: {
+                      aid: "200",
+                      bvid: "BV1season",
+                      title: "season episode",
+                      cover: "//i0.hdslb.com/cover-s.jpg",
+                      duration_text: "12:34",
+                      desc: "",
+                      jump_url: "//www.bilibili.com/video/BV1season/",
+                      stat: { play: "10", danmaku: "0" },
+                    },
+                  },
+                },
+              },
+            },
+          ],
+        },
+      });
+    }
+    return jsonResponse({ code: -404 });
+  });
+  try {
+    const result = await getFollowingVideos({}, { credential });
+    assert.equal(result.items.length, 1);
+    assert.equal(result.items[0].bvid, "BV1season");
+    assert.equal(result.items[0].dynamic_id, "2000");
   } finally {
     config.rateLimitMs = previousRateLimit;
     fetchMock.restore();
