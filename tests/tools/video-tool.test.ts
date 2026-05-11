@@ -268,3 +268,111 @@ test("video subtitle entries strip internal fields and infer ai_generated", asyn
     fetchMock.restore();
   }
 });
+
+test("video info return includes url and available_qualities from playurl support_formats", async () => {
+  const previousRateLimit = config.rateLimitMs;
+  config.rateLimitMs = 0;
+  const fetchMock = installMockFetch((url) => {
+    if (url.pathname === "/x/web-interface/view") {
+      return jsonResponse({
+        code: 0,
+        data: {
+          bvid: "BV1abcdefghi",
+          aid: 1,
+          cid: 11,
+          title: "test",
+          pages: [{ page: 1, cid: 11, part: "P1", duration: 20 }],
+        },
+      });
+    }
+    if (url.pathname === "/x/web-interface/nav") {
+      return jsonResponse({
+        code: 0,
+        data: {
+          wbi_img: {
+            img_url: "https://i0.hdslb.com/bfs/wbi/abcdefghijklmnopqrstuvwxyz123456.png",
+            sub_url: "https://i0.hdslb.com/bfs/wbi/ABCDEFGHIJKLMNOPQRSTUVWXYZ123456.png",
+          },
+        },
+      });
+    }
+    if (url.pathname === "/x/frontend/finger/spi") {
+      return jsonResponse({ code: 0, data: { b_3: "buvid3", b_4: "buvid4" } });
+    }
+    if (url.pathname === "/x/player/wbi/playurl") {
+      return jsonResponse({
+        code: 0,
+        data: {
+          support_formats: [
+            { quality: 120, new_description: "4K 超清", format: "hdflv2" },
+            { quality: 80, new_description: "1080P 高清", format: "flv" },
+            { quality: 64, new_description: "720P 高清", format: "flv720" },
+            { quality: 32, new_description: "480P 清晰", format: "flv480" },
+          ],
+        },
+      });
+    }
+    return jsonResponse({ code: -404, message: `unexpected ${url.pathname}` });
+  });
+
+  try {
+    const result = await callTool("bilibili_video", { action: "info", input: "BV1abcdefghi" }) as any;
+    assert.equal(result.url, "https://www.bilibili.com/video/BV1abcdefghi");
+    assert.ok(Array.isArray(result.available_qualities), "available_qualities should be an array");
+    assert.deepEqual(result.available_qualities, [
+      { qn: 120, desc: "4K 超清", need_login: true, need_vip: true },
+      { qn: 80, desc: "1080P 高清", need_login: true, need_vip: false },
+      { qn: 64, desc: "720P 高清", need_login: true, need_vip: false },
+      { qn: 32, desc: "480P 清晰", need_login: false, need_vip: false },
+    ]);
+  } finally {
+    config.rateLimitMs = previousRateLimit;
+    fetchMock.restore();
+  }
+});
+
+test("video info omits available_qualities silently when playurl fails", async () => {
+  const previousRateLimit = config.rateLimitMs;
+  config.rateLimitMs = 0;
+  const fetchMock = installMockFetch((url) => {
+    if (url.pathname === "/x/web-interface/view") {
+      return jsonResponse({
+        code: 0,
+        data: {
+          bvid: "BV1abcdefghi",
+          aid: 1,
+          cid: 11,
+          title: "test",
+          pages: [{ page: 1, cid: 11, part: "P1", duration: 20 }],
+        },
+      });
+    }
+    if (url.pathname === "/x/web-interface/nav") {
+      return jsonResponse({
+        code: 0,
+        data: {
+          wbi_img: {
+            img_url: "https://i0.hdslb.com/bfs/wbi/abcdefghijklmnopqrstuvwxyz123456.png",
+            sub_url: "https://i0.hdslb.com/bfs/wbi/ABCDEFGHIJKLMNOPQRSTUVWXYZ123456.png",
+          },
+        },
+      });
+    }
+    if (url.pathname === "/x/frontend/finger/spi") {
+      return jsonResponse({ code: 0, data: { b_3: "buvid3", b_4: "buvid4" } });
+    }
+    if (url.pathname === "/x/player/wbi/playurl") {
+      return jsonResponse({ code: -404, message: "playurl unavailable" });
+    }
+    return jsonResponse({ code: -404, message: `unexpected ${url.pathname}` });
+  });
+
+  try {
+    const result = await callTool("bilibili_video", { action: "info", input: "BV1abcdefghi" }) as any;
+    assert.equal(result.url, "https://www.bilibili.com/video/BV1abcdefghi");
+    assert.ok(!("available_qualities" in result), "available_qualities should be omitted on failure");
+  } finally {
+    config.rateLimitMs = previousRateLimit;
+    fetchMock.restore();
+  }
+});

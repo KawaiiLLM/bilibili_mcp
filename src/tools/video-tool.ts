@@ -2,6 +2,7 @@ import { BilibiliAPIError, ValidationError } from "../core/errors.js";
 import { extractAid, extractBVId, resolveBilibiliVideoInput } from "../core/bvid.js";
 import { searchVideos } from "../modules/search.js";
 import { getAiSummary } from "../modules/summary.js";
+import { describeQuality, getQualityRequirements } from "../modules/quality.js";
 import { getVideoSnapshot } from "../modules/snapshot.js";
 import { getVideoSubtitles } from "../modules/subtitle.js";
 import { formatDuration, getPlayUrl, getVideoDetail, getVideoInfo, normalizePages, selectPage, type VideoPageInfo } from "../modules/video.js";
@@ -44,8 +45,11 @@ export const videoToolRouter: ToolRouter = {
     const page = Math.floor(optionalNumber(TOOL_NAME, args, "page") ?? 1);
     const context = await resolveVideoContext(requireString(TOOL_NAME, args, "input"), page);
     switch (action) {
-      case "info":
-        return summarizeContext(context);
+      case "info": {
+        const base = summarizeContext(context);
+        const availableQualities = await buildAvailableQualities(context.bvid, context.page.cid);
+        return availableQualities ? { ...base, available_qualities: availableQualities } : base;
+      }
       case "pages":
         return { bvid: context.bvid, aid: context.aid, pages: summarizePages(context.pages) };
       case "detail":
@@ -207,6 +211,23 @@ function toNullableNumber(value: unknown): number | null {
 
 function toRecord(value: unknown): Record<string, unknown> {
   return isRecord(value) ? value : {};
+}
+
+async function buildAvailableQualities(bvid: string, cid: number): Promise<Array<Record<string, unknown>> | undefined> {
+  try {
+    const payload = await getPlayUrl({ bvid, cid, tryLook: true });
+    const formats = Array.isArray(payload?.support_formats) ? payload.support_formats : [];
+    if (formats.length === 0) return undefined;
+    return formats.map((sf: any) => {
+      const qn = Number(sf?.quality);
+      const desc = String(sf?.new_description ?? describeQuality(qn) ?? "").trim();
+      const req = getQualityRequirements(qn);
+      return { qn, desc, need_login: req.need_login, need_vip: req.need_vip };
+    }).filter((entry: any) => Number.isFinite(entry.qn) && entry.qn > 0)
+      .sort((a: any, b: any) => Number(b.qn) - Number(a.qn));
+  } catch {
+    return undefined;
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
