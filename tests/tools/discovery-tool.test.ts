@@ -204,3 +204,59 @@ test("discovery search returns VideoListResult and drops raw payload noise", asy
     fetchMock.restore();
   }
 });
+
+test("discovery home returns shaped items from upstream feed", async () => {
+  const previousRateLimit = config.rateLimitMs;
+  config.rateLimitMs = 0;
+  const fetchMock = installMockFetch((url) => {
+    if (url.pathname === "/x/web-interface/nav") {
+      return jsonResponse({
+        code: 0,
+        data: {
+          wbi_img: {
+            img_url: "https://i0.hdslb.com/bfs/wbi/abcdefghijklmnopqrstuvwxyz123456.png",
+            sub_url: "https://i0.hdslb.com/bfs/wbi/ABCDEFGHIJKLMNOPQRSTUVWXYZ123456.png",
+          },
+        },
+      });
+    }
+    if (url.pathname === "/x/frontend/finger/spi") {
+      return jsonResponse({ code: 0, data: { b_3: "buvid3", b_4: "buvid4" } });
+    }
+    if (url.pathname === "/x/web-interface/wbi/index/top/feed/rcmd") {
+      return jsonResponse({
+        code: 0,
+        data: {
+          item: [
+            { goto: "av", bvid: "BV1", id: 1, cid: 1, title: "t1", pic: "p1", duraion: 60, owner: { mid: 1, name: "u1", face: "f1" }, stat: { view: 10 }, pubdate: 0, rcmd_reason: { reason_type: 1, content: "已关注" } },
+          ],
+        },
+      });
+    }
+    return jsonResponse({ code: -404 });
+  });
+  try {
+    const result: any = await callTool("bilibili_discovery", { action: "home", limit: 5 });
+    assert.equal(result.items.length, 1);
+    assert.equal(result.items[0].bvid, "BV1");
+    assert.equal(result.items[0].reason, "已关注");
+  } finally {
+    config.rateLimitMs = previousRateLimit;
+    fetchMock.restore();
+  }
+});
+
+test("discovery following requires SESSDATA and propagates cursor", async () => {
+  const previousRateLimit = config.rateLimitMs;
+  config.rateLimitMs = 0;
+  const fetchMock = installMockFetch(() => jsonResponse({ code: 0, data: {} }));
+  try {
+    await assert.rejects(
+      callTool("bilibili_discovery", { action: "following" }),
+      (err: any) => err?.code === "BILIBILI_COOKIE_INVALID",
+    );
+  } finally {
+    config.rateLimitMs = previousRateLimit;
+    fetchMock.restore();
+  }
+});
