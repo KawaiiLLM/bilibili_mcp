@@ -10,7 +10,7 @@ import { assertAllowedArgs, optionalNumber, optionalString, requireString, type 
 import { normalizeSubtitleEntry } from "./normalize.js";
 
 const TOOL_NAME = "bilibili_video";
-const VIDEO_ACTIONS = ["info", "detail", "subtitle", "summary", "snapshot", "stream", "pages"] as const;
+const VIDEO_ACTIONS = ["info", "detail", "subtitle", "summary", "snapshot", "pages"] as const;
 type VideoAction = (typeof VIDEO_ACTIONS)[number];
 
 export interface ResolvedVideoContext {
@@ -24,23 +24,22 @@ export interface ResolvedVideoContext {
 export const videoToolRouter: ToolRouter = {
   definition: {
     name: TOOL_NAME,
-    description: "B 站视频工具。通过 action 选择 info/detail/subtitle/summary/snapshot/stream/pages。",
+    description: "B 站视频工具。通过 action 选择 info/detail/subtitle/summary/snapshot/pages。",
     inputSchema: {
       type: "object",
       properties: {
-        action: { type: "string", enum: VIDEO_ACTIONS, description: "info/detail/subtitle/summary/snapshot/stream/pages" },
+        action: { type: "string", enum: VIDEO_ACTIONS, description: "info/detail/subtitle/summary/snapshot/pages" },
         input: { type: "string", description: "BV号、AV号、视频链接或关键词" },
         page: { type: "number", description: "分P序号，默认 1" },
         preferred_lang: { type: "string", description: "字幕语言偏好，例如 zh-Hans、en" },
         timestamp: { type: "number", description: "目标时间戳/秒，snapshot 使用" },
-        quality: { type: "number", description: "视频清晰度 qn，stream 使用" },
       },
       required: ["action", "input"],
       additionalProperties: false,
     },
   },
   async call(args: Record<string, unknown>): Promise<unknown> {
-    assertAllowedArgs(TOOL_NAME, args, ["action", "input", "page", "preferred_lang", "timestamp", "quality"]);
+    assertAllowedArgs(TOOL_NAME, args, ["action", "input", "page", "preferred_lang", "timestamp"]);
     const action = requireVideoAction(args);
     const page = Math.floor(optionalNumber(TOOL_NAME, args, "page") ?? 1);
     const context = await resolveVideoContext(requireString(TOOL_NAME, args, "input"), page);
@@ -70,8 +69,6 @@ export const videoToolRouter: ToolRouter = {
           cid: context.page.cid,
           timestamp: optionalNumber(TOOL_NAME, args, "timestamp"),
         });
-      case "stream":
-        return getPlayUrl({ bvid: context.bvid, cid: context.page.cid, qn: optionalNumber(TOOL_NAME, args, "quality") });
     }
   },
 };
