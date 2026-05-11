@@ -113,3 +113,31 @@ test("getBuvidCookies caches across calls (no extra SPI or activation)", async (
     clearBuvidCache();
   }
 });
+
+test("getBuvidCookies dedupes concurrent first-time callers", async () => {
+  clearBuvidCache();
+  config.enableBuvidActivation = true;
+  let spiCalls = 0;
+  let activationCalls = 0;
+  const fetchMock = installMockFetch(async (url) => {
+    if (url.pathname === "/x/frontend/finger/spi") {
+      spiCalls += 1;
+      await new Promise((r) => setTimeout(r, 20));
+      return jsonResponse({ code: 0, data: { b_3: "X", b_4: "Y" } });
+    }
+    if (url.pathname === "/x/internal/gaia-gateway/ExClimbWuzhi") {
+      activationCalls += 1;
+      return jsonResponse({ code: 0 });
+    }
+    throw new Error("unexpected url");
+  });
+  try {
+    const cookies = await Promise.all([getBuvidCookies(), getBuvidCookies(), getBuvidCookies()]);
+    assert.equal(new Set(cookies).size, 1, "all callers should receive the same cookie");
+    assert.equal(spiCalls, 1);
+    assert.equal(activationCalls, 1);
+  } finally {
+    fetchMock.restore();
+    clearBuvidCache();
+  }
+});
