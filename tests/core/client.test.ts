@@ -707,3 +707,52 @@ test("WBI endpoint final Cookie carries opus-goback + bili_ticket together", asy
     clearWbiCache();
   }
 });
+
+test("WBI endpoint does not retry on -412 (IP throttle)", async () => {
+  const { clearWbiCache } = await import("../../src/core/wbi.js");
+  clearWbiCache();
+  config.rateLimitMs = 0;
+  config.enableBiliTicket = false;
+  config.wbiRetryTimes = 3;
+  let navCalls = 0;
+  let businessCalls = 0;
+  const fetchMock = installMockFetch((url) => {
+    if (url.pathname === "/x/web-interface/nav") {
+      navCalls += 1;
+      return jsonResponse({
+        code: 0,
+        data: {
+          wbi_img: {
+            img_url: "https://i0.hdslb.com/bfs/wbi/11111111111111111111111111111111.png",
+            sub_url: "https://i0.hdslb.com/bfs/wbi/22222222222222222222222222222222.png",
+          },
+        },
+      });
+    }
+    businessCalls += 1;
+    return jsonResponse({ code: -412, message: "request blocked" });
+  });
+  const endpoint: ApiEndpoint = {
+    url: "https://api.bilibili.com/x/web-interface/wbi/throttle",
+    method: "GET",
+    wbi: true,
+    auth: false,
+    csrf: false,
+    buvid: false,
+    params_type: "query",
+    response_type: "json",
+    comment: "wbi-throttle",
+  };
+  try {
+    await assert.rejects(
+      () => request(endpoint),
+      (error: any) => error?.code === "BILIBILI_AUTH_REQUIRED",
+    );
+    assert.equal(businessCalls, 1, "-412 must not trigger WBI retry");
+    assert.equal(navCalls, 1);
+  } finally {
+    fetchMock.restore();
+    clearWbiCache();
+    config.wbiRetryTimes = 3;
+  }
+});

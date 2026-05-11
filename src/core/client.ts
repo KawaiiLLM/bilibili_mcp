@@ -300,9 +300,11 @@ function isAuthFailure(error: unknown): boolean {
 }
 
 function isWbiRecoverable(error: unknown): boolean {
-  // BILIBILI_WBI_FAILED ← -352; BILIBILI_AUTH_REQUIRED covers -403/-412.
-  // Called only when endpoint.wbi=true, so -403 here means wbi key likely rotated.
-  return error instanceof BilibiliAPIError && (
-    error.code === "BILIBILI_WBI_FAILED" || error.code === "BILIBILI_AUTH_REQUIRED"
-  );
+  if (!(error instanceof BilibiliAPIError)) return false;
+  if (error.code === "BILIBILI_WBI_FAILED") return true;
+  if (error.code !== "BILIBILI_AUTH_REQUIRED") return false;
+  // BILIBILI_AUTH_REQUIRED covers both -403 (wbi key rotation, retry-safe)
+  // and -412 (IP-level throttle, no recovery). Only retry on -403.
+  const payloadCode = (error.originalError as { code?: number } | undefined)?.code;
+  return payloadCode === -403;
 }
