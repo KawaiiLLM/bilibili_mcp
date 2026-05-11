@@ -5,11 +5,13 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 export const CONFIG_DIR = join(homedir(), ".config", "bilibili-mcp");
 export const CONFIG_ENV_PATH = join(CONFIG_DIR, ".env");
-try {
-    loadDotenv({ path: CONFIG_ENV_PATH });
-}
-catch {
-    // stable path may not exist yet
+if (process.env.NODE_ENV !== "test") {
+    try {
+        loadDotenv({ path: CONFIG_ENV_PATH });
+    }
+    catch {
+        // stable path may not exist yet
+    }
 }
 try {
     loadDotenv({ path: resolve(__dirname, "../../.env") });
