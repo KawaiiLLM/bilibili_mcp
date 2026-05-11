@@ -14,6 +14,7 @@ const credential: Credential = {
 
 test("client returns JSON payloads that do not use Bilibili code envelope", async () => {
   config.rateLimitMs = 0;
+  config.enableBiliTicket = false;
   const endpoint: ApiEndpoint = {
     url: "https://s.search.bilibili.com/main/hotword",
     method: "GET",
@@ -37,6 +38,7 @@ test("client returns JSON payloads that do not use Bilibili code envelope", asyn
     assert.equal(fetchMock.calls.length, 1);
   } finally {
     fetchMock.restore();
+    config.enableBiliTicket = true;
   }
 });
 
@@ -104,6 +106,7 @@ test("client builds relative comment URLs from endpoint base_url", async () => {
 test("client serializes concurrent request starts through rate-limit queue", async () => {
   const previousRateLimit = config.rateLimitMs;
   config.rateLimitMs = 25;
+  config.enableBiliTicket = false;
   const endpoint: ApiEndpoint = {
     url: "https://api.bilibili.com/x/test/read",
     method: "GET",
@@ -128,12 +131,14 @@ test("client serializes concurrent request starts through rate-limit queue", asy
     assert.ok(gaps.every((gap) => gap >= 20), `request starts were not serialized: ${gaps.join(",")}`);
   } finally {
     config.rateLimitMs = previousRateLimit;
+    config.enableBiliTicket = true;
     fetchMock.restore();
   }
 });
 
 test("client clears WBI cache and re-signs once on -352", async () => {
   config.rateLimitMs = 0;
+  config.enableBiliTicket = false;
   const endpoint: ApiEndpoint = {
     url: "https://api.bilibili.com/x/web-interface/wbi/protected",
     method: "GET",
@@ -177,6 +182,7 @@ test("client clears WBI cache and re-signs once on -352", async () => {
   } finally {
     fetchMock.restore();
     clearWbiCache();
+    config.enableBiliTicket = true;
   }
 });
 
@@ -207,6 +213,7 @@ test("client maps Bilibili 12002 to CommentsDisabledError", async () => {
 
 test("client uses cacheManager when RequestContext.cache is true", async () => {
   config.rateLimitMs = 0;
+  config.enableBiliTicket = false;
   cacheManager.clear();
   let fetchCount = 0;
   const endpoint: ApiEndpoint = {
@@ -234,5 +241,70 @@ test("client uses cacheManager when RequestContext.cache is true", async () => {
   } finally {
     fetchMock.restore();
     cacheManager.clear();
+    config.enableBiliTicket = true;
+  }
+});
+
+test("client injects bili_ticket cookie when config.enableBiliTicket is true", async () => {
+  const { clearTicketCache } = await import("../../src/core/ticket.js");
+  clearTicketCache();
+  config.rateLimitMs = 0;
+  config.enableBiliTicket = true;
+  let businessCookieHeader: string | undefined;
+  const fetchMock = installMockFetch((url, init) => {
+    if (url.pathname.endsWith("/GenWebTicket")) {
+      return jsonResponse({ code: 0, data: { ticket: "ticket-xyz" } });
+    }
+    businessCookieHeader = (init.headers as Record<string, string>).Cookie;
+    return jsonResponse({ code: 0, data: { ok: true } });
+  });
+  const endpoint: ApiEndpoint = {
+    url: "https://api.bilibili.com/x/web-interface/wbi/sample",
+    method: "GET",
+    wbi: false,
+    auth: false,
+    csrf: false,
+    buvid: false,
+    params_type: "query",
+    response_type: "json",
+    comment: "ticket-injection-target",
+  };
+  try {
+    await request<any>(endpoint);
+    assert.match(businessCookieHeader ?? "", /bili_ticket=ticket-xyz/);
+    assert.match(businessCookieHeader ?? "", /bili_ticket_expires=\d{10,}/);
+  } finally {
+    fetchMock.restore();
+    clearTicketCache();
+  }
+});
+
+test("client skips bili_ticket injection when disabled", async () => {
+  const { clearTicketCache } = await import("../../src/core/ticket.js");
+  clearTicketCache();
+  config.rateLimitMs = 0;
+  config.enableBiliTicket = false;
+  let fetchCount = 0;
+  const fetchMock = installMockFetch((url) => {
+    fetchCount += 1;
+    if (url.pathname.endsWith("/GenWebTicket")) {
+      throw new Error("should not be called");
+    }
+    return jsonResponse({ code: 0, data: { ok: true } });
+  });
+  const endpoint: ApiEndpoint = {
+    url: "https://api.bilibili.com/x/web-interface/sample",
+    method: "GET",
+    wbi: false, auth: false, csrf: false, buvid: false,
+    params_type: "query", response_type: "json",
+    comment: "no-ticket-target",
+  };
+  try {
+    await request(endpoint);
+    assert.equal(fetchCount, 1); // only business call, no ticket call
+  } finally {
+    fetchMock.restore();
+    clearTicketCache();
+    config.enableBiliTicket = true; // restore default for downstream tests
   }
 });

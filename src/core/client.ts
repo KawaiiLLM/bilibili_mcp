@@ -8,6 +8,7 @@ import { BilibiliAPIError, CommentsDisabledError, NetworkError } from "./errors.
 import { fetchWithTimeout } from "./fetch.js";
 import { withRetry } from "./retry.js";
 import { addWbi2Params, clearWbiCache, withWbiSignature } from "./wbi.js";
+import { getBiliTicket, getBiliTicketCached } from "./ticket.js";
 import { config } from "./config.js";
 
 type NormalizedParams = Record<string, string | number>;
@@ -71,6 +72,14 @@ async function performRequest<T>(
   if (endpoint.buvid) {
     const buvid = await getBuvidCookies(ctx.signal);
     if (buvid) headers.Cookie = appendBuvidCookies(headers.Cookie, buvid);
+  }
+
+  if (config.enableBiliTicket) {
+    const ticket = await getBiliTicket(ctx.signal);
+    const cachedInfo = getBiliTicketCached();
+    if (ticket && cachedInfo) {
+      headers.Cookie = appendBiliTicket(headers.Cookie, ticket, cachedInfo.expireAt);
+    }
   }
 
   if (endpoint.wbi2) requestParams = addWbi2Params(requestParams);
@@ -244,6 +253,11 @@ function mapBilibiliError(payload: BilibiliJsonEnvelope, url: string): BilibiliA
     return new BilibiliAPIError("当前请求被 B 站拒绝，通常是登录态或风控问题。", "BILIBILI_AUTH_REQUIRED", undefined, payload, true);
   }
   return new BilibiliAPIError(`${message} (${code})`, "API_ERROR", undefined, { payload, url }, false);
+}
+
+function appendBiliTicket(cookieHeader: string | undefined, ticket: string, expireAt: number): string {
+  const ticketCookie = `bili_ticket=${ticket}; bili_ticket_expires=${Math.floor(expireAt / 1000)}`;
+  return [cookieHeader, ticketCookie].filter(Boolean).join("; ");
 }
 
 function isAuthFailure(error: unknown): boolean {

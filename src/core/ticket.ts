@@ -25,6 +25,10 @@ export function clearTicketCache(): void {
   inFlight = null;
 }
 
+export function getBiliTicketCached(): CachedTicket | null {
+  return cached;
+}
+
 export async function getBiliTicket(signal?: AbortSignal): Promise<string | undefined> {
   const now = Date.now();
   if (cached && now < cached.expireAt) return cached.value;
