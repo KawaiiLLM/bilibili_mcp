@@ -5,7 +5,7 @@ import { getEndpoint, listApiFiles } from "../../src/core/api-loader.js";
 test("api catalog exposes required files and endpoint metadata", () => {
   assert.deepEqual(
     listApiFiles().sort(),
-    ["action", "auth", "comment", "danmaku", "ranking", "search", "video"],
+    ["action", "auth", "comment", "danmaku", "dynamic", "ranking", "search", "video"],
   );
 
   const playerInfo = getEndpoint("video", "info", "get_player_info");
