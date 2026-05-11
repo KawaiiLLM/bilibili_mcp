@@ -184,3 +184,165 @@ test("getHomeRecommend caps limit at 30 in upstream request", async () => {
     fetchMock.restore();
   }
 });
+
+import { getFollowingVideos } from "../../src/modules/dynamic.js";
+import type { Credential } from "../../src/core/types.js";
+
+test("getFollowingVideos throws when SESSDATA missing", async () => {
+  const previousRateLimit = config.rateLimitMs;
+  config.rateLimitMs = 0;
+  const fetchMock = installMockFetch(() => jsonResponse({ code: 0, data: {} }));
+  try {
+    await assert.rejects(
+      getFollowingVideos({}),
+      (err: any) => err?.code === "BILIBILI_COOKIE_INVALID",
+    );
+  } finally {
+    config.rateLimitMs = previousRateLimit;
+    fetchMock.restore();
+  }
+});
+
+test("getFollowingVideos keeps DYNAMIC_TYPE_AV items and drops others", async () => {
+  const previousRateLimit = config.rateLimitMs;
+  config.rateLimitMs = 0;
+  const credential: Credential = { cookieHeader: "SESSDATA=session; bili_jct=csrf", cookies: [] };
+  const fetchMock = installMockFetch((url) => {
+    if (url.pathname === "/x/polymer/web-dynamic/v1/feed/all") {
+      return jsonResponse({
+        code: 0,
+        data: {
+          has_more: true,
+          offset: "999",
+          update_baseline: "1000",
+          items: [
+            {
+              id_str: "1000",
+              type: "DYNAMIC_TYPE_AV",
+              modules: {
+                module_author: {
+                  mid: 42,
+                  name: "UP-1",
+                  face: "//i0.hdslb.com/face.jpg",
+                  pub_ts: 1778500000,
+                  pub_time: "刚刚",
+                },
+                module_dynamic: {
+                  major: {
+                    type: "MAJOR_TYPE_ARCHIVE",
+                    archive: {
+                      aid: "100",
+                      bvid: "BV1aaa",
+                      title: "AV title",
+                      cover: "//i0.hdslb.com/cover.jpg",
+                      duration_text: "06:00",
+                      desc: "some desc",
+                      jump_url: "//www.bilibili.com/video/BV1aaa/",
+                      stat: { play: "1234", danmaku: "5" },
+                    },
+                  },
+                },
+              },
+            },
+            { id_str: "1001", type: "DYNAMIC_TYPE_WORD", modules: {} },
+            { id_str: "1002", type: "DYNAMIC_TYPE_FORWARD", modules: {} },
+          ],
+        },
+      });
+    }
+    return jsonResponse({ code: -404 });
+  });
+  try {
+    const result = await getFollowingVideos({}, { credential });
+    assert.equal(result.items.length, 1);
+    assert.equal(result.items[0].bvid, "BV1aaa");
+    assert.equal(result.items[0].aid, 100);
+    assert.equal(result.items[0].title, "AV title");
+    assert.equal(result.items[0].cover, "https://i0.hdslb.com/cover.jpg");
+    assert.equal(result.items[0].duration_text, "06:00");
+    assert.equal(result.items[0].desc, "some desc");
+    assert.equal(result.items[0].jump_url, "https://www.bilibili.com/video/BV1aaa/");
+    assert.deepEqual(result.items[0].stat, { view: 1234, danmaku: 5 });
+    assert.equal(result.items[0].publish_time, 1778500000);
+    assert.equal(result.items[0].publish_text, "刚刚");
+    assert.deepEqual(result.items[0].author, { mid: 42, name: "UP-1", avatar: "https://i0.hdslb.com/face.jpg" });
+    assert.equal(result.items[0].dynamic_id, "1000");
+  } finally {
+    config.rateLimitMs = previousRateLimit;
+    fetchMock.restore();
+  }
+});
+
+test("getFollowingVideos passes cursor and returns cursor/has_more passthrough", async () => {
+  const previousRateLimit = config.rateLimitMs;
+  config.rateLimitMs = 0;
+  const credential: Credential = { cookieHeader: "SESSDATA=session; bili_jct=csrf", cookies: [] };
+  let capturedOffset: string | null = null;
+  const fetchMock = installMockFetch((url) => {
+    if (url.pathname === "/x/polymer/web-dynamic/v1/feed/all") {
+      capturedOffset = url.searchParams.get("offset");
+      return jsonResponse({
+        code: 0,
+        data: {
+          has_more: false,
+          offset: "next-cursor",
+          update_baseline: "baseline-x",
+          items: [],
+        },
+      });
+    }
+    return jsonResponse({ code: -404 });
+  });
+  try {
+    const result = await getFollowingVideos({ cursor: "prev-cursor" }, { credential });
+    assert.equal(capturedOffset, "prev-cursor");
+    assert.equal(result.cursor, "next-cursor");
+    assert.equal(result.has_more, false);
+    assert.equal(result.update_baseline, "baseline-x");
+  } finally {
+    config.rateLimitMs = previousRateLimit;
+    fetchMock.restore();
+  }
+});
+
+test("getFollowingVideos trims mapped items to limit", async () => {
+  const previousRateLimit = config.rateLimitMs;
+  config.rateLimitMs = 0;
+  const credential: Credential = { cookieHeader: "SESSDATA=session; bili_jct=csrf", cookies: [] };
+  const makeItem = (n: number) => ({
+    id_str: String(n),
+    type: "DYNAMIC_TYPE_AV",
+    modules: {
+      module_author: { mid: n, name: `up-${n}`, face: "f", pub_ts: n, pub_time: "刚刚" },
+      module_dynamic: {
+        major: {
+          type: "MAJOR_TYPE_ARCHIVE",
+          archive: { aid: String(n), bvid: `BV${n}`, title: `t${n}`, cover: "c", duration_text: "01:00", desc: "", jump_url: "j", stat: { play: "0", danmaku: "0" } },
+        },
+      },
+    },
+  });
+  const fetchMock = installMockFetch((url) => {
+    if (url.pathname === "/x/polymer/web-dynamic/v1/feed/all") {
+      return jsonResponse({
+        code: 0,
+        data: {
+          has_more: true,
+          offset: "x",
+          update_baseline: "y",
+          items: [makeItem(1), makeItem(2), makeItem(3), makeItem(4), makeItem(5)],
+        },
+      });
+    }
+    return jsonResponse({ code: -404 });
+  });
+  try {
+    const result = await getFollowingVideos({ limit: 2 }, { credential });
+    assert.equal(result.items.length, 2);
+    assert.equal(result.items[0].bvid, "BV1");
+    assert.equal(result.items[1].bvid, "BV2");
+  } finally {
+    config.rateLimitMs = previousRateLimit;
+    fetchMock.restore();
+  }
+});
