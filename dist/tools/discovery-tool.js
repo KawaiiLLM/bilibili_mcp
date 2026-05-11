@@ -6,7 +6,7 @@ import { getRelatedVideos } from "../modules/recommend.js";
 import { assertAllowedArgs, optionalNumber, optionalString, positiveInteger, requireString } from "./common.js";
 import { normalizeVideoList } from "./normalize.js";
 import { resolveVideoContext } from "./video-tool.js";
-const TOOL_NAME = "bilibili_discovery";
+const TOOL_NAME = "discovery";
 const DISCOVERY_ACTIONS = [
     "search",
     "search_type",

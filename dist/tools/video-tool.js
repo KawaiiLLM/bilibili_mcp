@@ -8,7 +8,7 @@ import { getVideoSubtitles } from "../modules/subtitle.js";
 import { formatDuration, getPlayUrl, getVideoDetail, getVideoInfo, normalizePages, selectPage } from "../modules/video.js";
 import { assertAllowedArgs, optionalNumber, optionalString, requireString } from "./common.js";
 import { normalizeSubtitleEntry } from "./normalize.js";
-const TOOL_NAME = "bilibili_video";
+const TOOL_NAME = "video";
 const VIDEO_ACTIONS = ["info", "detail", "subtitle", "summary", "snapshot", "pages"];
 export const videoToolRouter = {
     definition: {

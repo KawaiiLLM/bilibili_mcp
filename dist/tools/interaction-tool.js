@@ -6,7 +6,7 @@ import { assertAllowedArgs, optionalNumber, optionalNumberArray, optionalString,
 import { createConfirmationStore } from "./confirmation.js";
 import { normalizeDanmakuItem } from "./normalize.js";
 import { resolveVideoContext } from "./video-tool.js";
-const TOOL_NAME = "bilibili_interaction";
+const TOOL_NAME = "interaction";
 const READ_ACTIONS = ["comments", "replies", "danmaku"];
 const WRITE_ACTIONS = ["like", "coin", "favorite", "follow"];
 const INTERACTION_ACTIONS = [...READ_ACTIONS, ...WRITE_ACTIONS];

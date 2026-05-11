@@ -7,7 +7,7 @@ import { createConfirmationStore } from "./confirmation.js";
 import { normalizeDanmakuItem } from "./normalize.js";
 import { resolveVideoContext } from "./video-tool.js";
 
-const TOOL_NAME = "bilibili_interaction";
+const TOOL_NAME = "interaction";
 const READ_ACTIONS = ["comments", "replies", "danmaku"] as const;
 const WRITE_ACTIONS = ["like", "coin", "favorite", "follow"] as const;
 const INTERACTION_ACTIONS = [...READ_ACTIONS, ...WRITE_ACTIONS] as const;

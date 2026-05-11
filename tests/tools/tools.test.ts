@@ -9,21 +9,21 @@ config.enableBiliTicket = false;
 
 test("server exposes exactly four MCP tools", () => {
   assert.deepEqual(getTools().map((tool) => tool.name).sort(), [
-    "bilibili_config",
-    "bilibili_discovery",
-    "bilibili_interaction",
-    "bilibili_video",
+    "config",
+    "discovery",
+    "interaction",
+    "video",
   ]);
 });
 
 test("interaction writes require a matching confirmation token", async () => {
-  const first = await callTool("bilibili_interaction", { action: "follow", mid: 100 }) as any;
+  const first = await callTool("interaction", { action: "follow", mid: 100 }) as any;
   assert.equal(first.pending, true);
   assert.equal(first.expires_in_seconds, 300);
   assert.equal(typeof first.confirmation_token, "string");
 
   await assert.rejects(
-    () => callTool("bilibili_interaction", {
+    () => callTool("interaction", {
       action: "follow",
       mid: 200,
       confirmation_token: first.confirmation_token,
@@ -33,14 +33,14 @@ test("interaction writes require a matching confirmation token", async () => {
 });
 
 test("config status does not expose CookieCloud password", async () => {
-  const status = await callTool("bilibili_config", { action: "status" }) as Record<string, unknown>;
+  const status = await callTool("config", { action: "status" }) as Record<string, unknown>;
   assert.equal(Object.hasOwn(status, "password"), false);
   assert.equal(Object.hasOwn(status, "password_present"), true);
 });
 
 test("read interaction actions reject aid-only targets because cid may be required", async () => {
   await assert.rejects(
-    () => callTool("bilibili_interaction", { action: "danmaku", aid: 123 }),
+    () => callTool("interaction", { action: "danmaku", aid: 123 }),
     (error) => error instanceof ValidationError
       && error.message.includes("aid 只能用于写操作"),
   );
@@ -69,7 +69,7 @@ test("danmaku items expose mode_label and color_hex", async () => {
   });
 
   try {
-    const result = await callTool("bilibili_interaction", {
+    const result = await callTool("interaction", {
       action: "danmaku",
       input: "BV1abcdefghi",
       limit: 5,

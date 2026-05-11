@@ -9,7 +9,7 @@ import { formatDuration, getPlayUrl, getVideoDetail, getVideoInfo, normalizePage
 import { assertAllowedArgs, optionalNumber, optionalString, requireString, type ToolRouter } from "./common.js";
 import { normalizeSubtitleEntry } from "./normalize.js";
 
-const TOOL_NAME = "bilibili_video";
+const TOOL_NAME = "video";
 const VIDEO_ACTIONS = ["info", "detail", "subtitle", "summary", "snapshot", "pages"] as const;
 type VideoAction = (typeof VIDEO_ACTIONS)[number];
 

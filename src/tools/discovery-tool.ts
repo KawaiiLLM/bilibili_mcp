@@ -7,7 +7,7 @@ import { assertAllowedArgs, optionalNumber, optionalString, positiveInteger, req
 import { normalizeVideoList } from "./normalize.js";
 import { resolveVideoContext } from "./video-tool.js";
 
-const TOOL_NAME = "bilibili_discovery";
+const TOOL_NAME = "discovery";
 const DISCOVERY_ACTIONS = [
   "search",
   "search_type",

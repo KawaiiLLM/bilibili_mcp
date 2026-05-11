@@ -4,7 +4,7 @@ import { ValidationError } from "../core/errors.js";
 import { checkLoginStatus } from "../modules/auth.js";
 import { assertAllowedArgs, optionalString, requireString, type ToolRouter } from "./common.js";
 
-const TOOL_NAME = "bilibili_config";
+const TOOL_NAME = "config";
 const CONFIG_ACTIONS = ["setup", "status"] as const;
 type ConfigAction = (typeof CONFIG_ACTIONS)[number];
 

@@ -45,7 +45,7 @@ test("discovery related normalizes video cards and applies limit", async () => {
   });
 
   try {
-    const result = await callTool("bilibili_discovery", {
+    const result = await callTool("discovery", {
       action: "related",
       input: "BV1abcdefghi",
       limit: 1,
@@ -107,7 +107,7 @@ test("discovery hot strips raw payload noise into VideoCard shape", async () => 
   });
 
   try {
-    const result = await callTool("bilibili_discovery", { action: "hot", limit: 5 }) as any;
+    const result = await callTool("discovery", { action: "hot", limit: 5 }) as any;
     assert.equal(result.list.length, 1);
     const card = result.list[0];
     assert.equal(card.cover, "https://i0.hdslb.com/cover.jpg");
@@ -176,7 +176,7 @@ test("discovery search returns VideoListResult and drops raw payload noise", asy
   });
 
   try {
-    const result = await callTool("bilibili_discovery", {
+    const result = await callTool("discovery", {
       action: "search",
       keyword: "Veritasium",
       limit: 5,
@@ -236,7 +236,7 @@ test("discovery home returns shaped items from upstream feed", async () => {
     return jsonResponse({ code: -404 });
   });
   try {
-    const result: any = await callTool("bilibili_discovery", { action: "home", limit: 5 });
+    const result: any = await callTool("discovery", { action: "home", limit: 5 });
     assert.equal(result.items.length, 1);
     assert.equal(result.items[0].bvid, "BV1");
     assert.equal(result.items[0].reason, "已关注");
@@ -252,7 +252,7 @@ test("discovery following requires SESSDATA and propagates cursor", async () => 
   const fetchMock = installMockFetch(() => jsonResponse({ code: 0, data: {} }));
   try {
     await assert.rejects(
-      callTool("bilibili_discovery", { action: "following" }),
+      callTool("discovery", { action: "following" }),
       (err: any) => err?.code === "BILIBILI_COOKIE_INVALID",
     );
   } finally {

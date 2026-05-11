@@ -54,7 +54,7 @@ async function performRequest(endpoint, params, ctx, forceRefresh) {
         headers.Referer = endpoint.referer;
     const credential = await resolveCredential(endpoint, ctx, forceRefresh);
     if (endpoint.auth && !credential?.cookieHeader) {
-        throw new BilibiliAPIError("该接口需要登录态，请先通过 bilibili_config 配置 CookieCloud。", "BILIBILI_COOKIE_INVALID");
+        throw new BilibiliAPIError("该接口需要登录态，请先通过 config 配置 CookieCloud。", "BILIBILI_COOKIE_INVALID");
     }
     if (endpoint.csrf && !getBiliJct(credential)) {
         throw new BilibiliAPIError("缺少 bili_jct Cookie，无法提交需要 CSRF 的请求。", "BILIBILI_CSRF_MISSING");

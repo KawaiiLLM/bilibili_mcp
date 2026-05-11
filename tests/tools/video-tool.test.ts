@@ -45,7 +45,7 @@ test("video resolver falls back from failed BV lookup to search result", async (
   });
 
   try {
-    const result = await callTool("bilibili_video", { action: "info", input: "BV1abcdefghi" }) as any;
+    const result = await callTool("video", { action: "info", input: "BV1abcdefghi" }) as any;
     assert.equal(result.bvid, "BV2abcdefghi");
     assert.equal(result.title, "fallback video");
   } finally {
@@ -104,7 +104,7 @@ test("video snapshot returns sprite metadata when no timestamp provided", async 
   });
 
   try {
-    const result = await callTool("bilibili_video", { action: "snapshot", input: "BV1abcdefghi" }) as any;
+    const result = await callTool("video", { action: "snapshot", input: "BV1abcdefghi" }) as any;
     assert.ok(Array.isArray(result.image));
     assert.ok(Array.isArray(result.index));
     assert.ok(!("file" in result), "no timestamp ⇒ no extracted file");
@@ -158,7 +158,7 @@ test("video snapshot extracts frame when timestamp provided", async () => {
   const restore = setFrameRunnerForTest(async () => {});
 
   try {
-    const result = await callTool("bilibili_video", {
+    const result = await callTool("video", {
       action: "snapshot",
       input: "BV1abcdefghi",
       timestamp: 60,
@@ -320,7 +320,7 @@ test("video subtitle entries strip internal fields and infer ai_generated", asyn
   });
 
   try {
-    const result = await callTool("bilibili_video", {
+    const result = await callTool("video", {
       action: "subtitle",
       input: "BV1WiRhBhEmQ",
       preferred_lang: "zh-Hans",
@@ -393,7 +393,7 @@ test("video info return includes url and available_qualities from playurl suppor
   });
 
   try {
-    const result = await callTool("bilibili_video", { action: "info", input: "BV1abcdefghi" }) as any;
+    const result = await callTool("video", { action: "info", input: "BV1abcdefghi" }) as any;
     assert.equal(result.url, "https://www.bilibili.com/video/BV1abcdefghi");
     assert.ok(Array.isArray(result.available_qualities), "available_qualities should be an array");
     assert.deepEqual(result.available_qualities, [
@@ -445,7 +445,7 @@ test("video info omits available_qualities silently when playurl fails", async (
   });
 
   try {
-    const result = await callTool("bilibili_video", { action: "info", input: "BV1abcdefghi" }) as any;
+    const result = await callTool("video", { action: "info", input: "BV1abcdefghi" }) as any;
     assert.equal(result.url, "https://www.bilibili.com/video/BV1abcdefghi");
     assert.ok(!("available_qualities" in result), "available_qualities should be omitted on failure");
   } finally {

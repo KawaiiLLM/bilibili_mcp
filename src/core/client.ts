@@ -75,7 +75,7 @@ async function performRequest<T>(
   const credential = await resolveCredential(endpoint, ctx, forceRefresh);
   if (endpoint.auth && !credential?.cookieHeader) {
     throw new BilibiliAPIError(
-      "该接口需要登录态，请先通过 bilibili_config 配置 CookieCloud。",
+      "该接口需要登录态，请先通过 config 配置 CookieCloud。",
       "BILIBILI_COOKIE_INVALID",
     );
   }

@@ -174,7 +174,7 @@ function ensureCookieCloudConfig(): void {
       undefined,
       undefined,
       false,
-      "请设置 CookieCloud endpoint、UUID 和密码，或调用 bilibili_config action=setup。",
+      "请设置 CookieCloud endpoint、UUID 和密码，或调用 config action=setup。",
     );
   }
 }

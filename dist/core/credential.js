@@ -130,7 +130,7 @@ function ensureCookieCloudConfig() {
     if (!config.cookieCloudPassword)
         missing.push("BILIBILI_MCP_COOKIECLOUD_PASSWORD 或 COOKIECLOUD_PASSWORD");
     if (missing.length > 0) {
-        throw new BilibiliAPIError(`CookieCloud 配置缺失：${missing.join(", ")}。`, "COOKIECLOUD_CONFIG_INVALID", undefined, undefined, false, "请设置 CookieCloud endpoint、UUID 和密码，或调用 bilibili_config action=setup。");
+        throw new BilibiliAPIError(`CookieCloud 配置缺失：${missing.join(", ")}。`, "COOKIECLOUD_CONFIG_INVALID", undefined, undefined, false, "请设置 CookieCloud endpoint、UUID 和密码，或调用 config action=setup。");
     }
 }
 function md5Hex(input) {
