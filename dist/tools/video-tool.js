@@ -2,26 +2,27 @@ import { BilibiliAPIError, ValidationError } from "../core/errors.js";
 import { extractAid, extractBVId, resolveBilibiliVideoInput } from "../core/bvid.js";
 import { searchVideos } from "../modules/search.js";
 import { getAiSummary } from "../modules/summary.js";
+import { describeQuality, getQualityRequirements } from "../modules/quality.js";
 import { getVideoSnapshot } from "../modules/snapshot.js";
 import { getVideoSubtitles } from "../modules/subtitle.js";
 import { formatDuration, getPlayUrl, getVideoDetail, getVideoInfo, normalizePages, selectPage } from "../modules/video.js";
 import { assertAllowedArgs, optionalNumber, optionalString, requireString } from "./common.js";
 import { normalizeSubtitleEntry } from "./normalize.js";
 const TOOL_NAME = "bilibili_video";
-const VIDEO_ACTIONS = ["info", "detail", "subtitle", "summary", "snapshot", "stream", "pages"];
+const VIDEO_ACTIONS = ["info", "detail", "subtitle", "summary", "snapshot", "pages"];
 export const videoToolRouter = {
     definition: {
         name: TOOL_NAME,
-        description: "B 站视频工具。通过 action 选择 info/detail/subtitle/summary/snapshot/stream/pages。",
+        description: "B 站视频工具。通过 action 选择 info/detail/subtitle/summary/snapshot/pages。",
         inputSchema: {
             type: "object",
             properties: {
-                action: { type: "string", enum: VIDEO_ACTIONS, description: "info/detail/subtitle/summary/snapshot/stream/pages" },
+                action: { type: "string", enum: VIDEO_ACTIONS, description: "info/detail/subtitle/summary/snapshot/pages" },
                 input: { type: "string", description: "BV号、AV号、视频链接或关键词" },
                 page: { type: "number", description: "分P序号，默认 1" },
                 preferred_lang: { type: "string", description: "字幕语言偏好，例如 zh-Hans、en" },
                 timestamp: { type: "number", description: "目标时间戳/秒，snapshot 使用" },
-                quality: { type: "number", description: "视频清晰度 qn，stream 使用" },
+                quality: { type: "number", description: "截图清晰度 qn (snapshot with timestamp 时使用)，默认 80 (1080P)" },
             },
             required: ["action", "input"],
             additionalProperties: false,
@@ -33,8 +34,11 @@ export const videoToolRouter = {
         const page = Math.floor(optionalNumber(TOOL_NAME, args, "page") ?? 1);
         const context = await resolveVideoContext(requireString(TOOL_NAME, args, "input"), page);
         switch (action) {
-            case "info":
-                return summarizeContext(context);
+            case "info": {
+                const base = summarizeContext(context);
+                const availableQualities = await buildAvailableQualities(context.bvid, context.page.cid);
+                return availableQualities ? { ...base, available_qualities: availableQualities } : base;
+            }
             case "pages":
                 return { bvid: context.bvid, aid: context.aid, pages: summarizePages(context.pages) };
             case "detail":
@@ -54,9 +58,9 @@ export const videoToolRouter = {
                     aid: context.aid,
                     cid: context.page.cid,
                     timestamp: optionalNumber(TOOL_NAME, args, "timestamp"),
+                    quality: optionalNumber(TOOL_NAME, args, "quality"),
+                    page: context.page.page,
                 });
-            case "stream":
-                return getPlayUrl({ bvid: context.bvid, cid: context.page.cid, qn: optionalNumber(TOOL_NAME, args, "quality") });
         }
     },
 };
@@ -188,6 +192,24 @@ function toNullableNumber(value) {
 }
 function toRecord(value) {
     return isRecord(value) ? value : {};
+}
+async function buildAvailableQualities(bvid, cid) {
+    try {
+        const payload = await getPlayUrl({ bvid, cid, tryLook: true });
+        const formats = Array.isArray(payload?.support_formats) ? payload.support_formats : [];
+        if (formats.length === 0)
+            return undefined;
+        return formats.map((sf) => {
+            const qn = Number(sf?.quality);
+            const desc = String(sf?.new_description ?? describeQuality(qn) ?? "").trim();
+            const req = getQualityRequirements(qn);
+            return { qn, desc, need_login: req.need_login, need_vip: req.need_vip };
+        }).filter((entry) => Number.isFinite(entry.qn) && entry.qn > 0)
+            .sort((a, b) => Number(b.qn) - Number(a.qn));
+    }
+    catch {
+        return undefined;
+    }
 }
 function isRecord(value) {
     return value !== null && typeof value === "object" && !Array.isArray(value);

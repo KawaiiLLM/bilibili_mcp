@@ -17,6 +17,10 @@ export async function getPlayUrl(input, ctx) {
         bvid: input.bvid,
         cid: input.cid,
         qn: input.qn,
+        try_look: input.tryLook ? 1 : undefined,
+        platform: input.platform,
+        fnval: input.fnval,
+        fourk: input.fourk,
     }, ctx);
 }
 export function normalizePages(videoData) {

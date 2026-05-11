@@ -486,7 +486,7 @@ BILIBILI_MCP_COOKIECLOUD_PASSWORD=your-cookiecloud-password
 
 ```bash
 npm install
-npm test          # 105 tests
+npm test          # 119 tests
 npm run build     # tsc → dist/
 npm run check     # 启动前自检
 ```

@@ -42,7 +42,7 @@
       "url": "https://api.bilibili.com/x/player/wbi/playurl",
       "method": "GET",
       "wbi": true,
-      "auth": true,
+      "auth": false,
       "csrf": false,
       "buvid": true,
       "params_type": "query",
@@ -52,7 +52,7 @@
         "fnval": 16,
         "fourk": 1
       },
-      "comment": "Get video stream URLs."
+      "comment": "Get video stream URLs. Works without auth (lower qualities); SESSDATA unlocks higher qualities."
     },
     "get_snapshot": {
       "url": "https://api.bilibili.com/x/player/videoshot",

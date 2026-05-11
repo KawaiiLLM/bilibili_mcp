@@ -16,11 +16,16 @@ export declare function getPlayerInfo(input: {
     bvid: string;
     cid: number;
 }, ctx?: RequestContext): Promise<any>;
-export declare function getPlayUrl(input: {
+export interface GetPlayUrlInput {
     bvid: string;
     cid: number;
     qn?: number;
-}, ctx?: RequestContext): Promise<any>;
+    tryLook?: boolean;
+    platform?: "pc" | "html5";
+    fnval?: number;
+    fourk?: number;
+}
+export declare function getPlayUrl(input: GetPlayUrlInput, ctx?: RequestContext): Promise<any>;
 export declare function normalizePages(videoData: any): VideoPageInfo[];
 export declare function selectPage(videoData: any, page: number): VideoPageInfo;
 export declare function formatDuration(seconds: number): string;
