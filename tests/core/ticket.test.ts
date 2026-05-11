@@ -120,3 +120,28 @@ test("getBiliTicket failure does not poison cache", async () => {
     clearTicketCache();
   }
 });
+
+test("getBiliTicket re-fetches after TTL expires", async (t) => {
+  clearTicketCache();
+  let fetchCount = 0;
+  const fetchMock = installMockFetch(() => {
+    fetchCount += 1;
+    return jsonResponse({ code: 0, data: { ticket: `gen-${fetchCount}` } });
+  });
+  const originalNow = Date.now;
+  let fakeNow = 1_700_000_000_000;
+  Date.now = () => fakeNow;
+  try {
+    assert.equal(await getBiliTicket(), "gen-1");
+    fakeNow += 2 * 24 * 60 * 60 * 1000; // +2 days, still cached
+    assert.equal(await getBiliTicket(), "gen-1");
+    assert.equal(fetchCount, 1);
+    fakeNow += 2 * 24 * 60 * 60 * 1000; // +2 more days, now 4 days total → expired
+    assert.equal(await getBiliTicket(), "gen-2");
+    assert.equal(fetchCount, 2);
+  } finally {
+    Date.now = originalNow;
+    fetchMock.restore();
+    clearTicketCache();
+  }
+});
