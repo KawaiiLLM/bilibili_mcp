@@ -85,3 +85,45 @@ function positiveInteger(value: unknown, fallback: number): number {
   const numeric = Number(value);
   return Number.isFinite(numeric) && numeric > 0 ? Math.floor(numeric) : fallback;
 }
+
+export interface SelectedStream {
+  url: string;
+  quality: number;
+  width?: number;
+  height?: number;
+  codec?: string;
+}
+
+export function selectVideoStream(payload: any, targetQn: number): SelectedStream {
+  const dashVideos: any[] = Array.isArray(payload?.dash?.video) ? payload.dash.video : [];
+  if (dashVideos.length > 0) {
+    const sorted = [...dashVideos].sort((a, b) => {
+      const distA = Math.abs(Number(a?.id ?? 0) - targetQn);
+      const distB = Math.abs(Number(b?.id ?? 0) - targetQn);
+      if (distA !== distB) return distA - distB;
+      const codecA = Number(a?.codecid ?? 0);
+      const codecB = Number(b?.codecid ?? 0);
+      if (codecA === 7 && codecB !== 7) return -1;
+      if (codecB === 7 && codecA !== 7) return 1;
+      return 0;
+    });
+    const chosen = sorted[0];
+    return {
+      url: String(chosen?.baseUrl ?? chosen?.base_url ?? ""),
+      quality: Number(chosen?.id ?? 0),
+      width: chosen?.width != null ? Number(chosen.width) : undefined,
+      height: chosen?.height != null ? Number(chosen.height) : undefined,
+      codec: chosen?.codecs ? String(chosen.codecs) : undefined,
+    };
+  }
+
+  const durl: any[] = Array.isArray(payload?.durl) ? payload.durl : [];
+  if (durl.length > 0 && durl[0]?.url) {
+    return {
+      url: String(durl[0].url),
+      quality: Number(payload?.quality ?? 0),
+    };
+  }
+
+  throw new Error("NO_VIDEO_STREAM");
+}
