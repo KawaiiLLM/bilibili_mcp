@@ -1,8 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { locateFrame } from "../../src/modules/snapshot.js";
 import { selectVideoStream } from "../../src/modules/snapshot.js";
-import { extractFrame } from "../../src/modules/snapshot.js";
+import { extractFrame, ensureFfmpegBinary } from "../../src/modules/snapshot.js";
 import { installMockFetch, jsonResponse } from "../helpers/mock-fetch.js";
 import { config } from "../../src/core/config.js";
 
@@ -174,5 +177,46 @@ test("extractFrame uses try_look when no SESSDATA in context", async () => {
   } finally {
     config.rateLimitMs = previousRateLimit;
     fetchMock.restore();
+  }
+});
+
+test("ensureFfmpegBinary returns without install when binary already exists", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "ffmpeg-test-"));
+  const binPath = join(dir, "ffmpeg");
+  writeFileSync(binPath, "");
+  let installCalls = 0;
+  try {
+    await ensureFfmpegBinary(binPath, async () => { installCalls += 1; });
+    assert.equal(installCalls, 0);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("ensureFfmpegBinary runs installer when binary missing then succeeds", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "ffmpeg-test-"));
+  const binPath = join(dir, "ffmpeg");
+  let installCalls = 0;
+  try {
+    await ensureFfmpegBinary(binPath, async () => {
+      installCalls += 1;
+      writeFileSync(binPath, "");
+    });
+    assert.equal(installCalls, 1);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("ensureFfmpegBinary throws when installer runs but binary still missing", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "ffmpeg-test-"));
+  const binPath = join(dir, "ffmpeg");
+  try {
+    await assert.rejects(
+      ensureFfmpegBinary(binPath, async () => {}),
+      /ffmpeg-static binary missing after install/,
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
   }
 });

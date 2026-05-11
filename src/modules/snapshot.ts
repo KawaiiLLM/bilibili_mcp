@@ -3,9 +3,10 @@ import { request } from "../core/client.js";
 import { normalizeAbsoluteUrl } from "../tools/normalize.js";
 import type { RequestContext } from "../core/types.js";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { access } from "node:fs/promises";
 import { credentialManager } from "../core/credential.js";
 import type { Credential } from "../core/types.js";
 import { config } from "../core/config.js";
@@ -262,5 +263,37 @@ async function loadFfmpegPath(): Promise<string> {
   if (typeof path !== "string" || path.length === 0) {
     throw new Error("SNAPSHOT_EXTRACT_FAILED: ffmpeg-static binary not available");
   }
+  await ensureFfmpegBinary(path, () => runFfmpegStaticInstaller(path));
   return path;
+}
+
+let installPromise: Promise<void> | null = null;
+
+export async function ensureFfmpegBinary(binPath: string, install: () => Promise<void>): Promise<void> {
+  if (await fileExists(binPath)) return;
+  if (!installPromise) {
+    installPromise = install().finally(() => { installPromise = null; });
+  }
+  await installPromise;
+  if (!(await fileExists(binPath))) {
+    throw new Error("SNAPSHOT_EXTRACT_FAILED: ffmpeg-static binary missing after install");
+  }
+}
+
+async function fileExists(path: string): Promise<boolean> {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function runFfmpegStaticInstaller(binPath: string): Promise<void> {
+  const installerPath = join(dirname(binPath), "install.js");
+  await execFileAsync(process.execPath, [installerPath], {
+    cwd: dirname(binPath),
+    timeout: 120_000,
+    maxBuffer: 16 * 1024 * 1024,
+  });
 }

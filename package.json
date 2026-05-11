@@ -1,6 +1,6 @@
 {
   "name": "bilibili-mcp",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Bilibili MCP Server with CookieCloud authentication and endpoint-driven API client",
   "type": "module",
   "main": "dist/index.js",

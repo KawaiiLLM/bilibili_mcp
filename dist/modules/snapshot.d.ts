@@ -66,3 +66,4 @@ export interface ExtractFrameOptions {
 }
 export declare function setFrameRunnerForTest(runner: FrameRunner): () => void;
 export declare function extractFrame(input: ExtractFrameInput, options?: ExtractFrameOptions): Promise<ExtractFrameResult>;
+export declare function ensureFfmpegBinary(binPath: string, install: () => Promise<void>): Promise<void>;
