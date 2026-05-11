@@ -41,7 +41,7 @@ async function fetchTicket(signal?: AbortSignal): Promise<CachedTicket | undefin
   try {
     const response = await fetchWithTimeout(url, {
       method: "POST",
-      headers: DEFAULT_HEADERS,
+      headers: { ...DEFAULT_HEADERS },
       signal,
     });
     if (!response.ok) {
