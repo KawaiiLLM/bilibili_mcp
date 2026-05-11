@@ -32,6 +32,7 @@ export interface Config {
   httpSsePath: string;
   httpMessagesPath: string;
   enableBiliTicket: boolean;
+  enableBuvidActivation: boolean;
 }
 
 export const DEFAULT_CONFIG: Omit<
@@ -57,6 +58,7 @@ export const DEFAULT_CONFIG: Omit<
   httpSsePath: "/sse",
   httpMessagesPath: "/messages",
   enableBiliTicket: true,
+  enableBuvidActivation: true,
 };
 
 export const config: Config = {
@@ -70,6 +72,7 @@ export const config: Config = {
   maxCacheSize: parseIntEnv(process.env.BILIBILI_MCP_CACHE_SIZE, DEFAULT_CONFIG.maxCacheSize),
   userAgent: process.env.BILIBILI_MCP_USER_AGENT || process.env.USER_AGENT || DEFAULT_CONFIG.userAgent,
   enableBiliTicket: process.env.BILIBILI_MCP_ENABLE_BILI_TICKET !== "false",
+  enableBuvidActivation: process.env.BILIBILI_MCP_ENABLE_BUVID_ACTIVATION !== "false",
   cookieCloudEndpoint:
     process.env.BILIBILI_MCP_COOKIECLOUD_ENDPOINT ||
     process.env.COOKIECLOUD_ENDPOINT ||
