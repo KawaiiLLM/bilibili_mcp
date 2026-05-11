@@ -46,6 +46,18 @@
       "params_type": "query",
       "response_type": "json",
       "comment": "Get must-watch archive list."
+    },
+    "recommend": {
+      "url": "https://api.bilibili.com/x/web-interface/wbi/index/top/feed/rcmd",
+      "method": "GET",
+      "wbi": true,
+      "auth": false,
+      "csrf": false,
+      "buvid": false,
+      "params_type": "query",
+      "response_type": "json",
+      "defaults": { "web_location": "1430650" },
+      "comment": "Web homepage video recommendation feed. SESSDATA personalizes; works without."
     }
   }
 }
