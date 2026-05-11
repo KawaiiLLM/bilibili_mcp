@@ -1,6 +1,6 @@
 {
   "name": "bilibili-mcp",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Bilibili MCP Server with CookieCloud authentication and endpoint-driven API client",
   "type": "module",
   "main": "dist/index.js",
@@ -35,7 +35,7 @@
     "danmaku",
     "comments"
   ],
-  "license": "GPL-3.0",
+  "license": "GPL-3.0-only",
   "engines": {
     "node": ">=18.0.0"
   },
