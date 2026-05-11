@@ -54,7 +54,7 @@ test("video resolver falls back from failed BV lookup to search result", async (
   }
 });
 
-test("video snapshot action returns located frame for timestamp", async () => {
+test("video snapshot returns sprite metadata when no timestamp provided", async () => {
   const previousRateLimit = config.rateLimitMs;
   config.rateLimitMs = 0;
   const fetchMock = installMockFetch((url) => {
@@ -82,18 +82,95 @@ test("video snapshot action returns located frame for timestamp", async () => {
         },
       });
     }
+    if (url.pathname === "/x/web-interface/nav") {
+      return jsonResponse({
+        code: 0,
+        data: {
+          wbi_img: {
+            img_url: "https://i0.hdslb.com/bfs/wbi/abcdefghijklmnopqrstuvwxyz123456.png",
+            sub_url: "https://i0.hdslb.com/bfs/wbi/ABCDEFGHIJKLMNOPQRSTUVWXYZ123456.png",
+          },
+        },
+      });
+    }
+    if (url.pathname === "/x/frontend/finger/spi") {
+      return jsonResponse({ code: 0, data: { b_3: "buvid3", b_4: "buvid4" } });
+    }
+    if (url.pathname === "/x/player/wbi/playurl") {
+      // info action calls playurl for available_qualities
+      return jsonResponse({ code: 0, data: { support_formats: [] } });
+    }
     return jsonResponse({ code: -404, message: `unexpected ${url.pathname}` });
   });
+
+  try {
+    const result = await callTool("bilibili_video", { action: "snapshot", input: "BV1abcdefghi" }) as any;
+    assert.ok(Array.isArray(result.image));
+    assert.ok(Array.isArray(result.index));
+    assert.ok(!("file" in result), "no timestamp ⇒ no extracted file");
+  } finally {
+    config.rateLimitMs = previousRateLimit;
+    fetchMock.restore();
+  }
+});
+
+test("video snapshot extracts frame when timestamp provided", async () => {
+  const previousRateLimit = config.rateLimitMs;
+  config.rateLimitMs = 0;
+  const fetchMock = installMockFetch((url) => {
+    if (url.pathname === "/x/web-interface/view") {
+      return jsonResponse({
+        code: 0,
+        data: {
+          bvid: "BV1abcdefghi",
+          aid: 1,
+          cid: 11,
+          pages: [{ page: 1, cid: 11, part: "P1", duration: 120 }],
+        },
+      });
+    }
+    if (url.pathname === "/x/web-interface/nav") {
+      return jsonResponse({
+        code: 0,
+        data: {
+          wbi_img: {
+            img_url: "https://i0.hdslb.com/bfs/wbi/abcdefghijklmnopqrstuvwxyz123456.png",
+            sub_url: "https://i0.hdslb.com/bfs/wbi/ABCDEFGHIJKLMNOPQRSTUVWXYZ123456.png",
+          },
+        },
+      });
+    }
+    if (url.pathname === "/x/frontend/finger/spi") {
+      return jsonResponse({ code: 0, data: { b_3: "buvid3", b_4: "buvid4" } });
+    }
+    if (url.pathname === "/x/player/wbi/playurl") {
+      return jsonResponse({
+        code: 0,
+        data: {
+          dash: { video: [{ id: 80, codecid: 7, baseUrl: "https://cdn.example/avc-1080.m4s", width: 1920, height: 1080 }] },
+        },
+      });
+    }
+    return jsonResponse({ code: -404, message: `unexpected ${url.pathname}` });
+  });
+
+  const { setFrameRunnerForTest } = await import("../../src/modules/snapshot.js");
+  const restore = setFrameRunnerForTest(async () => {});
 
   try {
     const result = await callTool("bilibili_video", {
       action: "snapshot",
       input: "BV1abcdefghi",
-      timestamp: 9,
+      timestamp: 60,
     }) as any;
-    assert.equal(result.frame.timestamp, 8);
-    assert.equal(result.frame.imageUrl, "https://i0.hdslb.com/bfs/videoshot/1.jpg");
+    assert.equal(result.timestamp, 60);
+    assert.equal(result.quality, 80);
+    assert.equal(result.quality_desc, "1080P 高清");
+    assert.equal(result.width, 1920);
+    assert.equal(result.height, 1080);
+    assert.match(result.file, /bilibili-snapshot-BV1abcdefghi-p1-60s\.jpg$/);
   } finally {
+    restore();
     config.rateLimitMs = previousRateLimit;
     fetchMock.restore();
   }

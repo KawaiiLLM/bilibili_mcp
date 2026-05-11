@@ -48,9 +48,19 @@ export async function getVideoSnapshot(input: {
   aid?: number;
   cid: number;
   timestamp?: number;
+  quality?: number;
+  page?: number;
 }, ctx?: RequestContext): Promise<any> {
-  const meta = await getSnapshotMeta({ bvid: input.bvid, aid: input.aid, cid: input.cid }, ctx);
-  return input.timestamp === undefined ? meta : { meta, frame: locateFrame(meta, input.timestamp) };
+  if (input.timestamp === undefined) {
+    return getSnapshotMeta({ bvid: input.bvid, aid: input.aid, cid: input.cid }, ctx);
+  }
+  return extractFrame({
+    bvid: input.bvid,
+    cid: input.cid,
+    timestamp: input.timestamp,
+    quality: input.quality,
+    page: input.page,
+  });
 }
 
 export function locateFrame(meta: SnapshotMeta, targetSeconds: number): FrameLocation {
@@ -180,6 +190,16 @@ async function tryGetCredential(): Promise<Credential | undefined> {
   }
 }
 
+let frameRunner: FrameRunner = defaultFrameRunner;
+
+export function setFrameRunnerForTest(runner: FrameRunner): () => void {
+  const previous = frameRunner;
+  frameRunner = runner;
+  return () => {
+    frameRunner = previous;
+  };
+}
+
 export async function extractFrame(input: ExtractFrameInput, options: ExtractFrameOptions = {}): Promise<ExtractFrameResult> {
   const credential = await tryGetCredential();
   const hasAuth = Boolean(credential?.cookieHeader && /SESSDATA=/.test(credential.cookieHeader));
@@ -207,7 +227,7 @@ export async function extractFrame(input: ExtractFrameInput, options: ExtractFra
     ? { Referer: "https://www.bilibili.com", "User-Agent": config.userAgent }
     : undefined;
 
-  const runner = options.runner ?? defaultFrameRunner;
+  const runner = options.runner ?? frameRunner;
   await runner({ url: stream.url, timestamp: input.timestamp, outpath, headers });
 
   return {

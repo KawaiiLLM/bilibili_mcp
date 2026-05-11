@@ -33,13 +33,14 @@ export const videoToolRouter: ToolRouter = {
         page: { type: "number", description: "分P序号，默认 1" },
         preferred_lang: { type: "string", description: "字幕语言偏好，例如 zh-Hans、en" },
         timestamp: { type: "number", description: "目标时间戳/秒，snapshot 使用" },
+        quality: { type: "number", description: "截图清晰度 qn (snapshot with timestamp 时使用)，默认 80 (1080P)" },
       },
       required: ["action", "input"],
       additionalProperties: false,
     },
   },
   async call(args: Record<string, unknown>): Promise<unknown> {
-    assertAllowedArgs(TOOL_NAME, args, ["action", "input", "page", "preferred_lang", "timestamp"]);
+    assertAllowedArgs(TOOL_NAME, args, ["action", "input", "page", "preferred_lang", "timestamp", "quality"]);
     const action = requireVideoAction(args);
     const page = Math.floor(optionalNumber(TOOL_NAME, args, "page") ?? 1);
     const context = await resolveVideoContext(requireString(TOOL_NAME, args, "input"), page);
@@ -68,6 +69,8 @@ export const videoToolRouter: ToolRouter = {
           aid: context.aid,
           cid: context.page.cid,
           timestamp: optionalNumber(TOOL_NAME, args, "timestamp"),
+          quality: optionalNumber(TOOL_NAME, args, "quality"),
+          page: context.page.page,
         });
     }
   },
