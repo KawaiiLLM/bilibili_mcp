@@ -654,3 +654,56 @@ test("non-WBI endpoint does not loop on -403", async () => {
     fetchMock.restore();
   }
 });
+
+test("WBI endpoint final Cookie carries opus-goback + bili_ticket together", async () => {
+  const { clearTicketCache } = await import("../../src/core/ticket.js");
+  const { clearWbiCache } = await import("../../src/core/wbi.js");
+  clearTicketCache();
+  clearWbiCache();
+  config.rateLimitMs = 0;
+  config.enableBiliTicket = true;
+  let businessCookieHeader: string | undefined;
+  let ticketCookieHeader: string | undefined;
+  const fetchMock = installMockFetch((url, init) => {
+    if (url.pathname.endsWith("/GenWebTicket")) {
+      ticketCookieHeader = (init.headers as Record<string, string>).Cookie;
+      return jsonResponse({ code: 0, data: { ticket: "wbi-ticket" } });
+    }
+    if (url.pathname === "/x/web-interface/nav") {
+      return jsonResponse({
+        code: 0,
+        data: {
+          wbi_img: {
+            img_url: "https://i0.hdslb.com/bfs/wbi/aabbccddeeff00112233445566778899.png",
+            sub_url: "https://i0.hdslb.com/bfs/wbi/99887766554433221100ffeeddccbbaa.png",
+          },
+        },
+      });
+    }
+    businessCookieHeader = (init.headers as Record<string, string>).Cookie;
+    return jsonResponse({ code: 0, data: { ok: true } });
+  });
+  const endpoint: ApiEndpoint = {
+    url: "https://api.bilibili.com/x/web-interface/wbi/integration",
+    method: "GET",
+    wbi: true,
+    auth: false,
+    csrf: false,
+    buvid: false,
+    params_type: "query",
+    response_type: "json",
+    comment: "integration",
+  };
+  try {
+    await request<any>(endpoint);
+    // Business request Cookie carries opus-goback AND bili_ticket
+    assert.match(businessCookieHeader ?? "", /opus-goback=1/);
+    assert.match(businessCookieHeader ?? "", /bili_ticket=wbi-ticket/);
+    // Ticket request inherits opus-goback (proves cookieHeader passthrough works)
+    assert.match(ticketCookieHeader ?? "", /opus-goback=1/);
+  } finally {
+    fetchMock.restore();
+    clearTicketCache();
+    clearWbiCache();
+  }
+});
