@@ -1,6 +1,6 @@
 import type { BaseUrlName } from "./constants.js";
 
-export const API_FILE_NAMES = ["video", "comment", "danmaku", "search", "ranking", "action", "auth", "dynamic"] as const;
+export const API_FILE_NAMES = ["video", "comment", "danmaku", "search", "ranking", "action", "auth", "dynamic", "space"] as const;
 export type ApiFileName = (typeof API_FILE_NAMES)[number];
 export type HttpMethod = "GET" | "POST";
 export type ParamsType = "query" | "body";

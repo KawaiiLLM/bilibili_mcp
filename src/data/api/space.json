@@ -1,0 +1,26 @@
+{
+  "wbi": {
+    "arc_search": {
+      "url": "https://api.bilibili.com/x/space/wbi/arc/search",
+      "method": "GET",
+      "wbi": true,
+      "auth": false,
+      "csrf": false,
+      "buvid": false,
+      "params_type": "query",
+      "response_type": "json",
+      "comment": "UP space submissions list. WBI signed; auth optional. Risks -412 rate limit."
+    },
+    "acc_info": {
+      "url": "https://api.bilibili.com/x/space/wbi/acc/info",
+      "method": "GET",
+      "wbi": true,
+      "auth": false,
+      "csrf": false,
+      "buvid": false,
+      "params_type": "query",
+      "response_type": "json",
+      "comment": "UP profile. WBI signed; auth optional (improves is_followed)."
+    }
+  }
+}
