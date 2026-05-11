@@ -1,0 +1,21 @@
+{
+  "name": "kawaii-llm",
+  "owner": {
+    "name": "KawaiiLLM"
+  },
+  "plugins": [
+    {
+      "name": "bilibili-mcp",
+      "source": ".",
+      "version": "0.3.0",
+      "description": "Bilibili MCP Server. CookieCloud login + WBI / bili_ticket / buvid anti-spider baseline. Tools: video, interaction, discovery, config.",
+      "strict": false,
+      "mcpServers": {
+        "bilibili-mcp": {
+          "command": "node",
+          "args": ["${CLAUDE_PLUGIN_ROOT}/dist/cli.js", "stdio"]
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "search": {
+    "web_search": {
+      "url": "https://api.bilibili.com/x/web-interface/wbi/search/all/v2",
+      "method": "GET",
+      "wbi": true,
+      "auth": false,
+      "csrf": false,
+      "buvid": true,
+      "params_type": "query",
+      "response_type": "json",
+      "comment": "Search all content."
+    },
+    "web_search_by_type": {
+      "url": "https://api.bilibili.com/x/web-interface/wbi/search/type",
+      "method": "GET",
+      "wbi": true,
+      "auth": false,
+      "csrf": false,
+      "buvid": true,
+      "params_type": "query",
+      "response_type": "json",
+      "comment": "Search content by type."
+    },
+    "suggest": {
+      "url": "https://s.search.bilibili.com/main/suggest",
+      "method": "GET",
+      "wbi": false,
+      "auth": false,
+      "csrf": false,
+      "buvid": false,
+      "params_type": "query",
+      "response_type": "json",
+      "comment": "Get search suggestions."
+    },
+    "hotword": {
+      "url": "https://s.search.bilibili.com/main/hotword",
+      "method": "GET",
+      "wbi": false,
+      "auth": false,
+      "csrf": false,
+      "buvid": false,
+      "params_type": "query",
+      "response_type": "json",
+      "comment": "Get hot search keywords."
+    }
+  }
+}

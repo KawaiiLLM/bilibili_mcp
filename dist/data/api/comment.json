@@ -1,0 +1,26 @@
+{
+  "reply": {
+    "main": {
+      "url": "https://api.bilibili.com/x/v2/reply/wbi/main",
+      "method": "GET",
+      "wbi": true,
+      "auth": false,
+      "csrf": false,
+      "buvid": true,
+      "params_type": "query",
+      "response_type": "json",
+      "comment": "Get main replies with cursor pagination."
+    },
+    "replies": {
+      "url": "https://api.bilibili.com/x/v2/reply/reply",
+      "method": "GET",
+      "wbi": false,
+      "auth": false,
+      "csrf": false,
+      "buvid": false,
+      "params_type": "query",
+      "response_type": "json",
+      "comment": "Get child replies for a root reply."
+    }
+  }
+}

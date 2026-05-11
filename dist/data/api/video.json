@@ -1,0 +1,105 @@
+{
+  "info": {
+    "get_info": {
+      "url": "https://api.bilibili.com/x/web-interface/view",
+      "method": "GET",
+      "wbi": false,
+      "auth": false,
+      "csrf": false,
+      "buvid": false,
+      "params_type": "query",
+      "response_type": "json",
+      "comment": "Get video metadata by bvid or aid."
+    },
+    "get_detail": {
+      "url": "https://api.bilibili.com/x/web-interface/wbi/view/detail",
+      "method": "GET",
+      "wbi": true,
+      "auth": false,
+      "csrf": false,
+      "buvid": false,
+      "params_type": "query",
+      "response_type": "json",
+      "defaults": {
+        "need_operation_card": 0,
+        "need_elec": 0
+      },
+      "comment": "Get detailed WBI video metadata."
+    },
+    "get_player_info": {
+      "url": "https://api.bilibili.com/x/player/wbi/v2",
+      "method": "GET",
+      "wbi": true,
+      "wbi2": true,
+      "auth": true,
+      "csrf": false,
+      "buvid": true,
+      "params_type": "query",
+      "response_type": "json",
+      "comment": "Get player metadata and subtitles."
+    },
+    "get_playurl": {
+      "url": "https://api.bilibili.com/x/player/wbi/playurl",
+      "method": "GET",
+      "wbi": true,
+      "auth": true,
+      "csrf": false,
+      "buvid": true,
+      "params_type": "query",
+      "response_type": "json",
+      "defaults": {
+        "fnver": 0,
+        "fnval": 16,
+        "fourk": 1
+      },
+      "comment": "Get video stream URLs."
+    },
+    "get_snapshot": {
+      "url": "https://api.bilibili.com/x/player/videoshot",
+      "method": "GET",
+      "wbi": false,
+      "auth": false,
+      "csrf": false,
+      "buvid": false,
+      "params_type": "query",
+      "response_type": "json",
+      "defaults": {
+        "index": 1
+      },
+      "comment": "Get video snapshot metadata."
+    },
+    "get_ai_summary": {
+      "url": "https://api.bilibili.com/x/web-interface/view/conclusion/get",
+      "method": "GET",
+      "wbi": true,
+      "auth": true,
+      "csrf": false,
+      "buvid": true,
+      "params_type": "query",
+      "response_type": "json",
+      "comment": "Get AI-generated video summary."
+    },
+    "get_related": {
+      "url": "https://api.bilibili.com/x/web-interface/archive/related",
+      "method": "GET",
+      "wbi": false,
+      "auth": false,
+      "csrf": false,
+      "buvid": false,
+      "params_type": "query",
+      "response_type": "json",
+      "comment": "Get related videos."
+    },
+    "get_nav": {
+      "url": "https://api.bilibili.com/x/web-interface/nav",
+      "method": "GET",
+      "wbi": false,
+      "auth": true,
+      "csrf": false,
+      "buvid": false,
+      "params_type": "query",
+      "response_type": "json",
+      "comment": "Check login status and account metadata."
+    }
+  }
+}

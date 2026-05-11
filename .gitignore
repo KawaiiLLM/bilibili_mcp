@@ -6,9 +6,12 @@
 
 # Local dependencies and build outputs.
 /node_modules/
-/dist/
 /dist-test/
 /coverage/
+
+# dist/ ships as part of the Claude Code plugin distribution.
+# Source maps add no runtime value, exclude them.
+dist/**/*.map
 
 # Local secrets and environment.
 .env
