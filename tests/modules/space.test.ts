@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { config } from "../../src/core/config.js";
-import { getSpaceVideos } from "../../src/modules/space.js";
+import { getSpaceVideos, getSpaceInfo } from "../../src/modules/space.js";
 import { BilibiliAPIError } from "../../src/core/errors.js";
 import { installMockFetch, jsonResponse } from "../helpers/mock-fetch.js";
 
@@ -240,6 +240,307 @@ test("getSpaceVideos propagates BilibiliAPIError on upstream -412", async () => 
     );
   } finally {
     config.rateLimitMs = previousRateLimit;
+    fetchMock.restore();
+  }
+});
+
+function fullAccInfoPayload(overrides: Record<string, any> = {}): any {
+  return {
+    code: 0,
+    data: {
+      mid: 25329395,
+      name: "Sacrive",
+      sex: "男",
+      face: "//i0.hdslb.com/face.jpg",
+      face_nft: 0,
+      sign: "签名",
+      rank: 10000,
+      level: 6,
+      jointime: 0,
+      moral: 0,
+      silence: 0,
+      is_senior_member: 1,
+      birthday: "11-15",
+      top_photo: "//i0.hdslb.com/banner.png",
+      school: { name: null },
+      tags: null,
+      pendant: { pid: 0, name: "", image: "", expire: 0 },
+      fans_medal: { show: false, wear: false, medal: null },
+      official: { role: 0, title: "", desc: "", type: -1 },
+      profession: { name: "", department: "", title: "", is_show: 0 },
+      vip: { type: 0, status: 0, due_date: 0, label: { text: "" } },
+      live_room: { roomStatus: 0, liveStatus: 0, roomid: 0, title: "", url: "", cover: "" },
+      sys_notice: {},
+      is_followed: false,
+      gaia_data: { foo: "bar" },
+      theme: {},
+      user_honour_info: {},
+      series: {},
+      mcn_info: null,
+      nameplate: { nid: 0 },
+      coins: 0,
+      ...overrides,
+    },
+  };
+}
+
+test("getSpaceInfo selects whitelisted fields and excludes noise", async () => {
+  const fetchMock = installMockFetch((url) => {
+    const stub = wbiNavStubs(url);
+    if (stub) return stub;
+    if (url.pathname === "/x/space/wbi/acc/info") return jsonResponse(fullAccInfoPayload());
+    return jsonResponse({ code: -404 });
+  });
+
+  try {
+    const result = await getSpaceInfo({ mid: 25329395 }) as unknown as Record<string, unknown>;
+    assert.equal(result.mid, 25329395);
+    assert.equal(result.name, "Sacrive");
+    assert.equal(result.sex, "男");
+    assert.equal(result.avatar, "https://i0.hdslb.com/face.jpg");
+    assert.equal(result.banner, "https://i0.hdslb.com/banner.png");
+    assert.equal(result.sign, "签名");
+    assert.equal(result.level, 6);
+    assert.equal(result.is_senior_member, true);
+    assert.equal(result.birthday, "11-15");
+    assert.equal(result.school, null);
+    assert.equal(result.space_url, "https://space.bilibili.com/25329395");
+    assert.equal(Object.hasOwn(result, "gaia_data"), false);
+    assert.equal(Object.hasOwn(result, "theme"), false);
+    assert.equal(Object.hasOwn(result, "user_honour_info"), false);
+    assert.equal(Object.hasOwn(result, "rank"), false);
+    assert.equal(Object.hasOwn(result, "jointime"), false);
+    assert.equal(Object.hasOwn(result, "moral"), false);
+    assert.equal(Object.hasOwn(result, "coins"), false);
+    assert.equal(Object.hasOwn(result, "nameplate"), false);
+  } finally {
+    fetchMock.restore();
+  }
+});
+
+test("getSpaceInfo maps official type to personal / organization / null", async () => {
+  for (const [type, expected] of [
+    [-1, null],
+    [0, "personal"],
+    [1, "organization"],
+  ] as const) {
+    const fetchMock = installMockFetch((url) => {
+      const stub = wbiNavStubs(url);
+      if (stub) return stub;
+      if (url.pathname === "/x/space/wbi/acc/info") {
+        return jsonResponse(fullAccInfoPayload({ official: { role: 0, title: "T", desc: "", type } }));
+      }
+      return jsonResponse({ code: -404 });
+    });
+    try {
+      const result = await getSpaceInfo({ mid: 1 }) as any;
+      assert.equal(result.official.type, expected);
+      assert.equal(result.official.verified, expected !== null);
+    } finally {
+      fetchMock.restore();
+    }
+  }
+});
+
+test("getSpaceInfo maps vip active flag from status", async () => {
+  const fetchMock = installMockFetch((url) => {
+    const stub = wbiNavStubs(url);
+    if (stub) return stub;
+    if (url.pathname === "/x/space/wbi/acc/info") {
+      return jsonResponse(fullAccInfoPayload({
+        vip: { type: 2, status: 1, due_date: 1810000000000, label: { text: "年度大会员" } },
+      }));
+    }
+    return jsonResponse({ code: -404 });
+  });
+
+  try {
+    const result = await getSpaceInfo({ mid: 1 }) as any;
+    assert.equal(result.vip.active, true);
+    assert.equal(result.vip.label, "年度大会员");
+    assert.equal(result.vip.due_date, 1810000000000);
+  } finally {
+    fetchMock.restore();
+  }
+});
+
+test("getSpaceInfo maps live_room null when roomStatus=0, populated when 1", async () => {
+  let fetchMock = installMockFetch((url) => {
+    const stub = wbiNavStubs(url);
+    if (stub) return stub;
+    if (url.pathname === "/x/space/wbi/acc/info") return jsonResponse(fullAccInfoPayload());
+    return jsonResponse({ code: -404 });
+  });
+  try {
+    const result = await getSpaceInfo({ mid: 1 }) as any;
+    assert.equal(result.live_room, null);
+  } finally {
+    fetchMock.restore();
+  }
+
+  fetchMock = installMockFetch((url) => {
+    const stub = wbiNavStubs(url);
+    if (stub) return stub;
+    if (url.pathname === "/x/space/wbi/acc/info") {
+      return jsonResponse(fullAccInfoPayload({
+        live_room: {
+          roomStatus: 1, liveStatus: 1, roomid: 12345,
+          title: "直播标题", url: "https://live.bilibili.com/12345",
+          cover: "//i0.hdslb.com/live-cover.jpg",
+        },
+      }));
+    }
+    return jsonResponse({ code: -404 });
+  });
+  try {
+    const result = await getSpaceInfo({ mid: 1 }) as any;
+    assert.deepEqual(result.live_room, {
+      roomid: 12345,
+      is_live: true,
+      title: "直播标题",
+      cover: "https://i0.hdslb.com/live-cover.jpg",
+      url: "https://live.bilibili.com/12345",
+    });
+  } finally {
+    fetchMock.restore();
+  }
+});
+
+test("getSpaceInfo maps profession only when is_show === 1", async () => {
+  let fetchMock = installMockFetch((url) => {
+    const stub = wbiNavStubs(url);
+    if (stub) return stub;
+    if (url.pathname === "/x/space/wbi/acc/info") return jsonResponse(fullAccInfoPayload());
+    return jsonResponse({ code: -404 });
+  });
+  try {
+    const result = await getSpaceInfo({ mid: 1 }) as any;
+    assert.equal(result.profession, null);
+  } finally {
+    fetchMock.restore();
+  }
+
+  fetchMock = installMockFetch((url) => {
+    const stub = wbiNavStubs(url);
+    if (stub) return stub;
+    if (url.pathname === "/x/space/wbi/acc/info") {
+      return jsonResponse(fullAccInfoPayload({
+        profession: { name: "主治医师", department: "心内科", title: "XX医院", is_show: 1 },
+      }));
+    }
+    return jsonResponse({ code: -404 });
+  });
+  try {
+    const result = await getSpaceInfo({ mid: 1 }) as any;
+    assert.deepEqual(result.profession, { name: "主治医师", department: "心内科", title: "XX医院" });
+  } finally {
+    fetchMock.restore();
+  }
+});
+
+test("getSpaceInfo filters and shapes tags array, null when missing or empty", async () => {
+  const cases: Array<[unknown, string[] | null]> = [
+    [null, null],
+    [[], null],
+    [["A", "", "B"], ["A", "B"]],
+  ];
+  for (const [tags, expected] of cases) {
+    const fetchMock = installMockFetch((url) => {
+      const stub = wbiNavStubs(url);
+      if (stub) return stub;
+      if (url.pathname === "/x/space/wbi/acc/info") return jsonResponse(fullAccInfoPayload({ tags }));
+      return jsonResponse({ code: -404 });
+    });
+    try {
+      const result = await getSpaceInfo({ mid: 1 }) as any;
+      assert.deepEqual(result.tags, expected);
+    } finally {
+      fetchMock.restore();
+    }
+  }
+});
+
+test("getSpaceInfo maps fans_medal from medal subfield", async () => {
+  const fetchMock = installMockFetch((url) => {
+    const stub = wbiNavStubs(url);
+    if (stub) return stub;
+    if (url.pathname === "/x/space/wbi/acc/info") {
+      return jsonResponse(fullAccInfoPayload({
+        fans_medal: {
+          show: true, wear: true,
+          medal: { uid: 1, target_id: 12345, medal_id: 99, level: 20, medal_name: "魔法" },
+        },
+      }));
+    }
+    return jsonResponse({ code: -404 });
+  });
+
+  try {
+    const result = await getSpaceInfo({ mid: 1 }) as any;
+    assert.deepEqual(result.fans_medal, { name: "魔法", level: 20, target_mid: 12345 });
+  } finally {
+    fetchMock.restore();
+  }
+});
+
+test("getSpaceInfo returns sys_notice content or null", async () => {
+  let fetchMock = installMockFetch((url) => {
+    const stub = wbiNavStubs(url);
+    if (stub) return stub;
+    if (url.pathname === "/x/space/wbi/acc/info") return jsonResponse(fullAccInfoPayload());
+    return jsonResponse({ code: -404 });
+  });
+  try {
+    const result = await getSpaceInfo({ mid: 1 }) as any;
+    assert.equal(result.sys_notice, null);
+  } finally {
+    fetchMock.restore();
+  }
+
+  fetchMock = installMockFetch((url) => {
+    const stub = wbiNavStubs(url);
+    if (stub) return stub;
+    if (url.pathname === "/x/space/wbi/acc/info") {
+      return jsonResponse(fullAccInfoPayload({
+        sys_notice: { id: 5, content: "该用户存在争议行为，已冻结其帐号功能的使用", notice_type: 1 },
+      }));
+    }
+    return jsonResponse({ code: -404 });
+  });
+  try {
+    const result = await getSpaceInfo({ mid: 1 }) as any;
+    assert.equal(result.sys_notice, "该用户存在争议行为，已冻结其帐号功能的使用");
+  } finally {
+    fetchMock.restore();
+  }
+});
+
+test("getSpaceInfo returns pendant name only when non-empty", async () => {
+  let fetchMock = installMockFetch((url) => {
+    const stub = wbiNavStubs(url);
+    if (stub) return stub;
+    if (url.pathname === "/x/space/wbi/acc/info") return jsonResponse(fullAccInfoPayload());
+    return jsonResponse({ code: -404 });
+  });
+  try {
+    const result = await getSpaceInfo({ mid: 1 }) as any;
+    assert.equal(result.pendant, null);
+  } finally {
+    fetchMock.restore();
+  }
+
+  fetchMock = installMockFetch((url) => {
+    const stub = wbiNavStubs(url);
+    if (stub) return stub;
+    if (url.pathname === "/x/space/wbi/acc/info") {
+      return jsonResponse(fullAccInfoPayload({ pendant: { pid: 1, name: "夏日祭", image: "x" } }));
+    }
+    return jsonResponse({ code: -404 });
+  });
+  try {
+    const result = await getSpaceInfo({ mid: 1 }) as any;
+    assert.equal(result.pendant, "夏日祭");
+  } finally {
     fetchMock.restore();
   }
 });
