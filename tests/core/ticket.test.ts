@@ -68,6 +68,9 @@ test("getBiliTicket dedupes concurrent calls into single fetch", async () => {
     ]);
     assert.deepEqual(tickets, ["concurrent", "concurrent", "concurrent", "concurrent"]);
     assert.equal(fetchCount, 1);
+    // Verify primary caller wrote to cache: a later call must hit cache, not refetch.
+    assert.equal(await getBiliTicket(), "concurrent");
+    assert.equal(fetchCount, 1);
   } finally {
     fetchMock.restore();
     clearTicketCache();
