@@ -28,6 +28,7 @@ export async function getMustWatch(ctx?: RequestContext): Promise<any> {
 
 export interface HomeRecommendItem {
   bvid: string;
+  url: string;
   aid: number;
   cid: number;
   title: string;
@@ -67,8 +68,10 @@ function mapHomeItem(raw: any): HomeRecommendItem {
   const duration = Number(raw?.duraion ?? raw?.duration ?? 0);
   const owner = raw?.owner ?? {};
   const stat = raw?.stat ?? {};
+  const bvid = String(raw?.bvid ?? "");
   return {
-    bvid: String(raw?.bvid ?? ""),
+    bvid,
+    url: bvid ? `https://www.bilibili.com/video/${bvid}` : "",
     aid: Number(raw?.id ?? raw?.aid ?? 0),
     cid: Number(raw?.cid ?? 0),
     title: String(raw?.title ?? ""),

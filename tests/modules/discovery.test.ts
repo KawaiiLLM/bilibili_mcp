@@ -64,6 +64,18 @@ test("getHomeRecommend filters to goto=av and shapes items", async () => {
               is_followed: 1,
               rcmd_reason: { reason_type: 1, content: "已关注" },
             },
+            {
+              goto: "av",
+              bvid: "BV1ad-promo",
+              business_info: { ad_tag: 1 },
+              title: "sponsored",
+              pic: "p",
+              duraion: 60,
+              owner: { mid: 99, name: "ad", face: "f" },
+              stat: {},
+              pubdate: 0,
+              rcmd_reason: { reason_type: 0 },
+            },
             { goto: "live", bvid: "BV1bbb", title: "live entry" },
             { goto: "ogv", bvid: "BV1ccc", title: "sidebar entry" },
           ],
@@ -77,6 +89,7 @@ test("getHomeRecommend filters to goto=av and shapes items", async () => {
     const result = await getHomeRecommend({ limit: 10 });
     assert.equal(result.items.length, 1);
     assert.equal(result.items[0].bvid, "BV1aaa");
+    assert.equal(result.items[0].url, "https://www.bilibili.com/video/BV1aaa");
     assert.equal(result.items[0].aid, 100);
     assert.equal(result.items[0].cid, 200);
     assert.equal(result.items[0].title, "AV item");
