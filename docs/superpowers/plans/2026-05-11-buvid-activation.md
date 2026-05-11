@@ -224,11 +224,9 @@ export function murmur3x64_128(input: string, seed: number): string {
   while (offset + 16 <= total) {
     const k1 = readLE64(bytes, offset);
     const k2 = readLE64(bytes, offset + 8);
-    h1 ^= rotl64((k1 * MURMUR_C1) & MASK64, 31);
-    h1 = ((h1 * MURMUR_C2) & MASK64);
+    h1 ^= (rotl64((k1 * MURMUR_C1) & MASK64, 31) * MURMUR_C2) & MASK64;
     h1 = (((rotl64(h1, 27) + h2) & MASK64) * 5n + MURMUR_C3) & MASK64;
-    h2 ^= rotl64((k2 * MURMUR_C2) & MASK64, 33);
-    h2 = ((h2 * MURMUR_C1) & MASK64);
+    h2 ^= (rotl64((k2 * MURMUR_C2) & MASK64, 33) * MURMUR_C1) & MASK64;
     h2 = (((rotl64(h2, 31) + h1) & MASK64) * 5n + MURMUR_C4) & MASK64;
     offset += 16;
   }
@@ -274,7 +272,7 @@ export function murmur3x64_128(input: string, seed: number): string {
 
 **Note on signed vs unsigned reads:** Python's `struct.unpack("<q", ...)` reads signed int64, but the algorithm immediately multiplies and masks to 64 bits. Reading unsigned (`readBigUInt64LE`) and masking gives identical results because Python's int operations are arbitrary precision, and the algorithm only reads the low 64 bits via modulo.
 
-**Note on the `h1 *= MURMUR_C2` step:** Reference Python writes `h1 ^= rotate_left(k1 * C1 % MOD, R2) * C2 % MOD` — operator precedence makes this `h1 ^= ((rotate_left(...) * C2) % MOD)`. The TS port matches by doing `rotl64(k1 * C1, 31)` first, then `(h1 ^ result) * C2`. ALTERNATIVELY, the simpler equivalent: `h1 ^= rotl64(k1 * C1, 31); h1 = h1 * C2`. Both compute the same value. Verify against vectors before chasing this difference.
+**Note on operator precedence:** Python `h1 ^= rotate_left(k1 * C1, R2) * C2 % MOD` binds `* C2` to `rotate_left(...)` FIRST, then XORs into `h1`. The single-line form `h1 ^= (rotl64(...) * MURMUR_C2) & MASK64` is the only correct port. Splitting into two statements (`h1 ^= rotl64(...); h1 = h1 * MURMUR_C2`) computes `(h1 ^ rotl(...)) * C2` which is WRONG — short vectors will silently pass because they skip the body loop, only 16+ byte vectors reveal the bug.
 
 **If vectors fail:** check (a) operator precedence on the xor/multiply order; (b) signed vs unsigned 64-bit read; (c) rotation direction (left vs right); (d) `h1 ^= len(bytes)` happens **after** the tail loop, not inside it.
 
