@@ -44,6 +44,7 @@ test("client returns JSON payloads that do not use Bilibili code envelope", asyn
 
 test("client posts form body with defaults and csrf from credential", async () => {
   config.rateLimitMs = 0;
+  config.enableBiliTicket = false;
   const endpoint: ApiEndpoint = {
     url: "https://api.bilibili.com/x/test/write",
     method: "POST",
@@ -73,11 +74,13 @@ test("client posts form body with defaults and csrf from credential", async () =
     assert.deepEqual(result, { ok: true });
   } finally {
     fetchMock.restore();
+    config.enableBiliTicket = true;
   }
 });
 
 test("client builds relative comment URLs from endpoint base_url", async () => {
   config.rateLimitMs = 0;
+  config.enableBiliTicket = false;
   const endpoint: ApiEndpoint = {
     url: "/{cid}.xml",
     method: "GET",
@@ -100,6 +103,7 @@ test("client builds relative comment URLs from endpoint base_url", async () => {
     assert.equal(result, "<i></i>");
   } finally {
     fetchMock.restore();
+    config.enableBiliTicket = true;
   }
 });
 
@@ -188,6 +192,7 @@ test("client clears WBI cache and re-signs once on -352", async () => {
 
 test("client maps Bilibili 12002 to CommentsDisabledError", async () => {
   config.rateLimitMs = 0;
+  config.enableBiliTicket = false;
   const endpoint: ApiEndpoint = {
     url: "https://api.bilibili.com/x/v2/reply/wbi/main",
     method: "GET",
@@ -208,6 +213,7 @@ test("client maps Bilibili 12002 to CommentsDisabledError", async () => {
     );
   } finally {
     fetchMock.restore();
+    config.enableBiliTicket = true;
   }
 });
 

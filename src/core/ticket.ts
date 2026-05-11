@@ -25,7 +25,7 @@ export function clearTicketCache(): void {
   inFlight = null;
 }
 
-export function getBiliTicketCached(): CachedTicket | null {
+export function getBiliTicketCached(): Readonly<CachedTicket> | null {
   return cached;
 }
 
