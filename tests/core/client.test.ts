@@ -68,6 +68,7 @@ test("client posts form body with defaults and csrf from credential", async () =
     assert.equal(body.get("type"), "2");
     assert.equal(body.get("rid"), "100");
     assert.equal(body.get("csrf"), "csrf-token");
+    assert.equal(body.get("csrf_token"), "csrf-token");
     return jsonResponse({ code: 0, data: { ok: true } });
   });
 
@@ -432,6 +433,37 @@ test("client injects opus-goback alongside credential cookies", async () => {
     await request<any>(endpoint, {}, { credential });
     assert.match(capturedCookie ?? "", /SESSDATA=session/);
     assert.match(capturedCookie ?? "", /opus-goback=1/);
+  } finally {
+    fetchMock.restore();
+    config.enableBiliTicket = true;
+  }
+});
+
+test("client adds csrf_token alongside csrf in JSON POST body", async () => {
+  config.rateLimitMs = 0;
+  config.enableBiliTicket = false;
+  const endpoint: ApiEndpoint = {
+    url: "https://api.bilibili.com/x/test/json-write",
+    method: "POST",
+    wbi: false,
+    auth: true,
+    csrf: true,
+    buvid: false,
+    params_type: "body",
+    content_type: "json",
+    response_type: "json",
+    comment: "json-write",
+  };
+  let bodyText: string | undefined;
+  const fetchMock = installMockFetch(async (_url, init) => {
+    bodyText = init.body as string;
+    return jsonResponse({ code: 0, data: { ok: true } });
+  });
+  try {
+    await request(endpoint, { rid: 100 }, { credential });
+    const parsed = JSON.parse(bodyText ?? "{}");
+    assert.equal(parsed.csrf, "csrf-token");
+    assert.equal(parsed.csrf_token, "csrf-token");
   } finally {
     fetchMock.restore();
     config.enableBiliTicket = true;

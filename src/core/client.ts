@@ -103,6 +103,7 @@ async function performRequest<T>(
         throw new BilibiliAPIError("缺少 bili_jct Cookie，无法提交需要 CSRF 的请求。", "BILIBILI_CSRF_MISSING");
       }
       bodyParams.csrf = csrf;
+      bodyParams.csrf_token = csrf;
     }
     if (endpoint.content_type === "json") {
       headers["Content-Type"] = JSON_CONTENT_TYPE;
